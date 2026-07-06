@@ -1,0 +1,1435 @@
+<!DOCTYPE html>
+<html lang="uz">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>Fura</title>
+<script src="https://telegram.org/js/telegram-web-app.js"></script>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Manrope:wght@500;700;800&family=JetBrains+Mono:wght@500;700&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: var(--tg-theme-bg-color, #ffffff);
+    --text: var(--tg-theme-text-color, #111111);
+    --hint: var(--tg-theme-hint-color, #8a8a8e);
+    --card: var(--tg-theme-secondary-bg-color, #f2f2f7);
+    --link: var(--tg-theme-link-color, #2f6fed);
+    --btn: var(--tg-theme-button-color, #2f6fed);
+    --btn-text: var(--tg-theme-button-text-color, #ffffff);
+    --header-bg: var(--tg-theme-header-bg-color, var(--bg));
+
+    --amber: #FF9F1C;
+    --amber-dim: rgba(255, 159, 28, 0.16);
+    --green: #1FAA59;
+    --green-dim: rgba(31, 170, 89, 0.12);
+    --red: #E5484D;
+    --red-dim: rgba(229, 72, 77, 0.12);
+
+    --font-display: 'Manrope', -apple-system, BlinkMacSystemFont, sans-serif;
+    --font-mono: 'JetBrains Mono', ui-monospace, monospace;
+    --font-body: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  }
+
+  * { box-sizing: border-box; }
+
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--text);
+    font-family: var(--font-body);
+    -webkit-font-smoothing: antialiased;
+    padding-bottom: 78px;
+  }
+
+  .app-header {
+    position: sticky;
+    top: 0;
+    z-index: 10;
+    background: var(--header-bg);
+    padding: 16px 18px 0 18px;
+  }
+
+  .app-header-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+  }
+
+  .app-header h1 {
+    font-family: var(--font-display);
+    font-weight: 800;
+    font-size: 22px;
+    margin: 0;
+    letter-spacing: -0.02em;
+  }
+
+  .add-btn {
+    width: 36px;
+    height: 36px;
+    border-radius: 50%;
+    border: none;
+    background: var(--btn);
+    color: var(--btn-text);
+    font-size: 22px;
+    line-height: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+  }
+
+  .road-divider {
+    margin-top: 14px;
+    height: 3px;
+    border-radius: 2px;
+    background-image: repeating-linear-gradient(
+      to right, var(--amber) 0 14px, transparent 14px 24px
+    );
+    background-size: 48px 3px;
+    animation: road-move 1.8s linear infinite;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .road-divider { animation: none; }
+  }
+
+  @keyframes road-move {
+    from { background-position: 0 0; }
+    to { background-position: -48px 0; }
+  }
+
+  main {
+    padding: 16px 18px 24px 18px;
+  }
+
+  .page { display: none; }
+  .page.active { display: block; }
+
+  .empty-state {
+    text-align: center;
+    padding: 48px 20px;
+    color: var(--hint);
+  }
+  .empty-state .glyph {
+    font-size: 40px;
+    margin-bottom: 10px;
+  }
+  .empty-state button {
+    margin-top: 16px;
+  }
+
+  .summary-card {
+    background: var(--card);
+    border-radius: 16px;
+    padding: 18px;
+    display: flex;
+    align-items: stretch;
+    margin-bottom: 18px;
+  }
+  .summary-col {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+  }
+  .summary-col .label {
+    font-size: 12px;
+    color: var(--hint);
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+  }
+  .summary-col .value {
+    font-family: var(--font-mono);
+    font-weight: 700;
+    font-size: 17px;
+  }
+  .summary-divider {
+    width: 0;
+    border-left: 2px dashed var(--amber);
+    margin: 2px 16px;
+  }
+  .value.positive { color: var(--green); }
+  .value.negative { color: var(--red); }
+
+  .big-total {
+    text-align: center;
+    padding: 22px 10px 26px 10px;
+  }
+  .big-total .label {
+    font-size: 13px;
+    color: var(--hint);
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    margin-bottom: 6px;
+  }
+  .big-total .value {
+    font-family: var(--font-mono);
+    font-weight: 700;
+    font-size: 32px;
+  }
+
+  .card {
+    background: var(--card);
+    border-radius: 14px;
+    padding: 14px 16px;
+    margin-bottom: 10px;
+    position: relative;
+  }
+  .card-top {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    gap: 10px;
+  }
+  .card-title {
+    font-weight: 700;
+    font-size: 15px;
+  }
+  .card-sub {
+    font-size: 12.5px;
+    color: var(--hint);
+    margin-top: 2px;
+  }
+  .card-amount {
+    font-family: var(--font-mono);
+    font-weight: 700;
+    font-size: 15px;
+    white-space: nowrap;
+  }
+  .card-row {
+    display: flex;
+    justify-content: space-between;
+    margin-top: 8px;
+    font-size: 13px;
+    color: var(--hint);
+  }
+  .badge {
+    display: inline-block;
+    font-size: 11.5px;
+    font-weight: 700;
+    padding: 3px 9px;
+    border-radius: 20px;
+    background: var(--amber-dim);
+    color: var(--amber);
+  }
+  .badge.active-badge { background: var(--green-dim); color: var(--green); }
+
+  .section-title {
+    font-family: var(--font-display);
+    font-weight: 700;
+    font-size: 14px;
+    color: var(--hint);
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    margin: 22px 0 10px 2px;
+  }
+
+  .month-bar-row { margin-bottom: 14px; }
+  .month-bar-label {
+    display: flex;
+    justify-content: space-between;
+    font-size: 13px;
+    margin-bottom: 5px;
+  }
+  .month-bar-label .m { color: var(--hint); font-family: var(--font-mono); }
+  .month-bar-track {
+    height: 8px;
+    background: var(--card);
+    border-radius: 6px;
+    overflow: hidden;
+    display: flex;
+  }
+  .month-bar-fill.income { background: var(--green); }
+  .month-bar-fill.expense { background: var(--red); }
+
+  .bottom-nav {
+    position: fixed;
+    bottom: 0; left: 0; right: 0;
+    display: flex;
+    background: var(--header-bg);
+    border-top: 1px solid var(--amber-dim);
+    padding: 6px 4px calc(6px + env(safe-area-inset-bottom)) 4px;
+    z-index: 20;
+  }
+  .nav-btn {
+    flex: 1;
+    background: none;
+    border: none;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 3px;
+    padding: 6px 1px;
+    color: var(--hint);
+    font-family: var(--font-body);
+    font-size: 9.5px;
+    cursor: pointer;
+  }
+  .nav-btn .icon { font-size: 18px; }
+  .nav-btn.active { color: var(--amber); }
+
+  .sheet-overlay {
+    position: fixed; inset: 0;
+    background: rgba(0,0,0,0.4);
+    display: none;
+    align-items: flex-end;
+    z-index: 30;
+  }
+  .sheet-overlay.open { display: flex; }
+  .sheet {
+    background: var(--bg);
+    width: 100%;
+    border-radius: 18px 18px 0 0;
+    padding: 20px 20px calc(20px + env(safe-area-inset-bottom)) 20px;
+    max-height: 85vh;
+    overflow-y: auto;
+  }
+  .sheet h2 {
+    font-family: var(--font-display);
+    font-size: 18px;
+    margin: 0 0 16px 0;
+  }
+  .field { margin-bottom: 14px; }
+  .field label {
+    display: block;
+    font-size: 12.5px;
+    color: var(--hint);
+    margin-bottom: 6px;
+  }
+  .field input, .field select {
+    width: 100%;
+    padding: 12px 14px;
+    border-radius: 10px;
+    border: 1px solid var(--amber-dim);
+    background: var(--card);
+    color: var(--text);
+    font-size: 15px;
+    font-family: var(--font-body);
+  }
+  .field input:focus, .field select:focus {
+    outline: 2px solid var(--amber);
+  }
+  .sheet-actions { display: flex; gap: 10px; margin-top: 6px; }
+  .btn-primary, .btn-secondary {
+    flex: 1;
+    padding: 13px;
+    border-radius: 12px;
+    border: none;
+    font-size: 15px;
+    font-weight: 700;
+    cursor: pointer;
+  }
+  .btn-primary { background: var(--btn); color: var(--btn-text); }
+  .btn-secondary { background: var(--card); color: var(--text); }
+  .btn-danger { background: var(--red-dim); color: var(--red); }
+
+  .toast {
+    position: fixed;
+    top: 14px; left: 50%;
+    transform: translateX(-50%);
+    background: var(--text);
+    color: var(--bg);
+    padding: 10px 18px;
+    border-radius: 30px;
+    font-size: 13.5px;
+    z-index: 50;
+    opacity: 0;
+    transition: opacity 0.25s ease;
+    pointer-events: none;
+  }
+  .toast.show { opacity: 1; }
+
+  .icon-x {
+    position: absolute;
+    top: 10px; right: 10px;
+    width: 24px; height: 24px;
+    border-radius: 50%;
+    border: none;
+    background: var(--red-dim);
+    color: var(--red);
+    font-size: 14px;
+    cursor: pointer;
+  }
+
+  .lang-switch {
+    display: flex;
+    background: var(--card);
+    border-radius: 12px;
+    padding: 4px;
+    gap: 4px;
+    margin-bottom: 22px;
+  }
+  .lang-btn {
+    flex: 1;
+    border: none;
+    background: transparent;
+    padding: 12px;
+    border-radius: 9px;
+    font-size: 15px;
+    font-weight: 700;
+    color: var(--hint);
+    cursor: pointer;
+  }
+  .lang-btn.active {
+    background: var(--amber);
+    color: #1a1a1a;
+  }
+
+  .support-card {
+    background: var(--card);
+    border-radius: 16px;
+    padding: 20px;
+    text-align: center;
+    margin-bottom: 18px;
+  }
+  .support-card .glyph { font-size: 34px; margin-bottom: 8px; }
+  .support-card p {
+    color: var(--hint);
+    font-size: 13.5px;
+    line-height: 1.5;
+    margin: 8px 0 18px 0;
+  }
+  .support-btn {
+    display: inline-block;
+    background: var(--amber);
+    color: #1a1a1a;
+    text-decoration: none;
+    font-weight: 700;
+    font-size: 15px;
+    padding: 13px 26px;
+    border-radius: 12px;
+  }
+
+  .more-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 14px 4px;
+    border-bottom: 1px solid var(--card);
+    font-size: 14px;
+  }
+  .more-row .hint { color: var(--hint); font-size: 12.5px; }
+
+  .mini-delete {
+    border: none;
+    background: var(--red-dim);
+    color: var(--red);
+    width: 24px; height: 24px;
+    min-width: 24px;
+    border-radius: 50%;
+    font-size: 12px;
+    cursor: pointer;
+    flex-shrink: 0;
+  }
+  .amount-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+</style>
+</head>
+<body>
+
+<div class="app-header">
+  <div class="app-header-row">
+    <h1 id="page-title">Moshinalar</h1>
+    <button class="add-btn" id="add-btn">+</button>
+  </div>
+  <div class="road-divider"></div>
+</div>
+
+<main>
+  <!-- MOSHINALAR -->
+  <section class="page active" id="page-trucks"></section>
+
+  <!-- REYSLAR -->
+  <section class="page" id="page-trips"></section>
+
+  <!-- XARAJATLAR -->
+  <section class="page" id="page-expenses"></section>
+
+  <!-- SAFARLAR -->
+  <section class="page" id="page-legs"></section>
+
+  <!-- HISOBOT -->
+  <section class="page" id="page-report"></section>
+
+  <!-- KO'PROQ -->
+  <section class="page" id="page-more"></section>
+</main>
+
+<nav class="bottom-nav">
+  <button class="nav-btn active" data-page="trucks"><span class="icon">🚛</span><span class="nav-label" data-key="Moshinalar">Moshinalar</span></button>
+  <button class="nav-btn" data-page="trips"><span class="icon">🧭</span><span class="nav-label" data-key="Reyslar">Reyslar</span></button>
+  <button class="nav-btn" data-page="expenses"><span class="icon">💸</span><span class="nav-label" data-key="Xarajatlar">Xarajatlar</span></button>
+  <button class="nav-btn" data-page="legs"><span class="icon">📍</span><span class="nav-label" data-key="Safarlar">Safarlar</span></button>
+  <button class="nav-btn" data-page="report"><span class="icon">📊</span><span class="nav-label" data-key="Hisobot">Hisobot</span></button>
+  <button class="nav-btn" data-page="more"><span class="icon">⚙️</span><span class="nav-label" data-key="Ko'proq">Ko'proq</span></button>
+</nav>
+
+<div class="sheet-overlay" id="sheet-overlay">
+  <div class="sheet" id="sheet-content"></div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+const tg = window.Telegram && window.Telegram.WebApp ? window.Telegram.WebApp : null;
+if (tg) { tg.ready(); tg.expand(); }
+
+const initData = tg && tg.initData ? tg.initData : "";
+
+// ---------------- Til (Lotin / Kirill) ----------------
+const TR = {
+  "Moshinalar": "Мошиналар",
+  "Reyslar": "Рейслар",
+  "Xarajatlar": "Харажатлар",
+  "Safarlar": "Сафарлар",
+  "Hisobot": "Ҳисобот",
+  "Ko'proq": "Кўпроқ",
+
+  "Hali fura qo'shilmagan.": "Ҳали фура қўшилмаган.",
+  "Boshlash uchun yuqoridagi + tugmasini bosing.": "Бошлаш учун юқоридаги + тугмасини босинг.",
+  "Qo'shilgan": "Қўшилган",
+  "Ta'mirlash": "Таъмирлаш",
+  "Yangi fura qo'shish": "Янги фура қўшиш",
+  "Fura nomi / raqami": "Фура номи / рақами",
+  "Bekor qilish": "Бекор қилиш",
+  "Saqlash": "Сақлаш",
+  "Fura qo'shildi": "Фура қўшилди",
+  "Nom kiriting": "Ном киритинг",
+  "Xarajat yo'q": "Харажат йўқ",
+  "+ Xarajat qo'shish": "+ Харажат қўшиш",
+  "O'chirish": "Ўчириш",
+  "Fura xarajati": "Фура харажати",
+  "Turi": "Тури",
+  "Extiyot qismlari": "Эҳтиёт қисмлари",
+  "Boshqa": "Бошқа",
+  "Summasi (so'm)": "Суммаси (сўм)",
+  "Izoh (ixtiyoriy)": "Изоҳ (ихтиёрий)",
+  "Orqaga": "Орқага",
+  "Summani kiriting": "Суммани киритинг",
+  "Xarajat qo'shildi": "Харажат қўшилди",
+  "Ushbu furani o'chirmoqchimisiz?": "Ушбу фурани ўчирмоқчимисиз?",
+  "Fura o'chirildi": "Фура ўчирилди",
+  "Ushbu xarajatni o'chirmoqchimisiz?": "Ушбу харажатни ўчирмоқчимисиз?",
+  "Xarajat o'chirildi": "Харажат ўчирилди",
+
+  "Hali reys yo'q.": "Ҳали рейс йўқ.",
+  "Yangi reys boshlash uchun + tugmasini bosing.": "Янги рейс бошлаш учун + тугмасини босинг.",
+  "Faol reys": "Фаол рейс",
+  "Tugagan reyslar": "Тугаган рейслар",
+  "Faol": "Фаол",
+  "Tugagan": "Тугаган",
+  "Daromad": "Даромад",
+  "Xarajat": "Харажат",
+  "Foyda": "Фойда",
+  "Barcha furalar band": "Барча фуралар банд",
+  "Barcha furalaringizda hozir faol reys bor. Yangisini boshlash uchun avval birortasini yakunlang, yoki yangi fura qo'shing.":
+    "Барча фураларингизда ҳозир фаол рейс бор. Янгисини бошлаш учун аввал бирортасини якунланг, ёки янги фура қўшинг.",
+  "Avval fura qo'shing": "Аввал фура қўшинг",
+  "Reys boshlash uchun kamida bitta fura kerak.": "Рейс бошлаш учун камида битта фура керак.",
+  "Tushunarli": "Тушунарли",
+  "Yangi reys boshlash": "Янги рейс бошлаш",
+  "Fura": "Фура",
+  "Boshlash": "Бошлаш",
+  "Reys boshlandi": "Рейс бошланди",
+  "Safar qo'shilmagan": "Сафар қўшилмаган",
+  "Xarajat qo'shilmagan": "Харажат қўшилмаган",
+  "Sof foyda": "Соф фойда",
+  "Reysni yakunlash": "Рейсни якунлаш",
+  "Reysni o'chirish": "Рейсни ўчириш",
+  "Reysni yakunlaysizmi? Bu amalni ortga qaytarib bo'lmaydi.": "Рейсни якунлайсизми? Бу амални ортга қайтариб бўлмайди.",
+  "Reys yakunlandi": "Рейс якунланди",
+  "Reysni butunlay o'chirmoqchimisiz? Bu amalni ortga qaytarib bo'lmaydi.": "Рейсни бутунлай ўчирмоқчимисиз? Бу амални ортга қайтариб бўлмайди.",
+  "Reys o'chirildi": "Рейс ўчирилди",
+  "Ushbu safarni o'chirmoqchimisiz?": "Ушбу сафарни ўчирмоқчимисиз?",
+  "Safar o'chirildi": "Сафар ўчирилди",
+  "reys": "рейс",
+
+  "Faol reys yo'q.": "Фаол рейс йўқ.",
+  "Avval \"Reyslar\" bo'limida reys boshlang.": "Аввал \"Рейслар\" бўлимида рейс бошланг.",
+  "joriy reys": "жорий рейс",
+  "Jami xarajat": "Жами харажат",
+  "Hali xarajat kiritilmagan": "Ҳали харажат киритилмаган",
+  "Xarajat qo'shish": "Харажат қўшиш",
+  "Yoqilg'i": "Ёқилғи",
+  "Yo'l haqi": "Йўл ҳақи",
+  "Ovqatlanish": "Овқатланиш",
+
+  "Jami daromad": "Жами даромад",
+  "Hali safar kiritilmagan": "Ҳали сафар киритилмаган",
+  "Safar qo'shish": "Сафар қўшиш",
+  "Qayerdan": "Қаердан",
+  "Qayerga": "Қаерга",
+  "Narxi (so'm)": "Нархи (сўм)",
+  "Yo'nalishni kiriting": "Йўналишни киритинг",
+  "Narxni kiriting": "Нархни киритинг",
+  "Safar qo'shildi": "Сафар қўшилди",
+
+  "Hali statistika uchun ma'lumot yo'q.": "Ҳали статистика учун маълумот йўқ.",
+  "Sof foyda / zarar": "Соф фойда / зарар",
+  "Oylar kesimida": "Ойлар кесимида",
+  "Moshinalar kesimida": "Мошиналар кесимида",
+  "Ma'lumot yo'q": "Маълумот йўқ",
+  "Hisobot avtomatik hisoblanadi": "Ҳисобот автоматик ҳисобланади",
+  "Xatolik yuz berdi": "Хатолик юз берди",
+  "Fura topilmadi": "Фура топилмади",
+  "Reys topilmadi": "Рейс топилмади",
+  "Bu fura uchun allaqachon faol reys bor": "Бу фура учун аллақачон фаол рейс бор",
+
+  "Til": "Тил",
+  "Valyuta": "Валюта",
+  "Kurs taxminiy: 1 USD ~ 12 000 so'm. Barcha ma'lumot so'mda saqlanadi, faqat ko'rinishi o'zgaradi.":
+    "Курс тахминий: 1 USD ~ 12 000 сўм. Барча маълумот сўмда сақланади, фақат кўриниши ўзгаради.",
+  "Ilova tilini tanlang": "Ilova tilini tanlang",
+  "Qo'llab-quvvatlash": "Қўллаб-қувватлаш",
+  "Bu bot mustaqil ishlab chiqilgan va bepul taqdim etiladi. Agar foydali deb topsangiz, rivojlantirishni qo'llab-quvvatlashingiz mumkin.":
+    "Бу бот мустақил ишлаб чиқилган ва бепул тақдим этилади. Агар фойдали деб топсангиз, ривожлантиришни қўллаб-қувватлашингиз мумкин.",
+  "Havola orqali qo'llab-quvvatlash": "Ҳавола орқали қўллаб-қувватлаш",
+  "Nusxalash": "Нусхалаш",
+  "Nusxalandi": "Нусхаланди",
+  "Rahmat!": "Раҳмат!",
+};
+
+let currentLang = localStorage.getItem("fura_lang") || "lotin";
+
+function tr(key) {
+  if (currentLang === "kirill" && TR[key]) return TR[key];
+  return key;
+}
+
+function setLanguage(lang) {
+  currentLang = lang;
+  localStorage.setItem("fura_lang", lang);
+  applyStaticLabels();
+  renderPage(state.page);
+}
+
+function applyStaticLabels() {
+  document.querySelectorAll(".nav-label").forEach(el => {
+    el.textContent = tr(el.dataset.key);
+  });
+  const titleEl = document.getElementById("page-title");
+  if (titleEl && pageTitles[state.page]) {
+    titleEl.textContent = tr(pageTitles[state.page]);
+  }
+}
+
+const state = {
+  page: "trucks",
+  trucks: [],
+  trips: [],
+  activeTrips: [],
+  selectedExpenseTripId: null,
+  selectedLegTripId: null,
+  report: null,
+};
+
+function escapeHtml(s) {
+  return String(s ?? "").replace(/[&<>"']/g, c => ({
+    "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;"
+  }[c]));
+}
+
+// Taxminiy kurs (qo'lda belgilangan, real vaqtda yangilanmaydi)
+const EXCHANGE_RATE_USD = 12000; // 1 USD ~ shuncha so'm
+let currentCurrency = localStorage.getItem("fura_currency") || "UZS";
+
+function setCurrency(cur) {
+  currentCurrency = cur;
+  localStorage.setItem("fura_currency", cur);
+  renderPage(state.page);
+}
+
+function formatSum(n) {
+  const num = Math.round(Number(n) || 0);
+  if (currentCurrency === "USD") {
+    const usd = num / EXCHANGE_RATE_USD;
+    const sign = usd < 0 ? "-" : "";
+    return sign + "$" + Math.abs(usd).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  }
+  const sign = num < 0 ? "-" : "";
+  const abs = Math.abs(num).toString();
+  const withSpaces = abs.replace(/\B(?=(\d{3})+(?!\d))/g, " ");
+  return sign + withSpaces + " so'm";
+}
+
+function showToast(msg) {
+  const t = document.getElementById("toast");
+  t.textContent = msg;
+  t.classList.add("show");
+  setTimeout(() => t.classList.remove("show"), 2200);
+}
+
+async function api(path, options = {}) {
+  const headers = Object.assign(
+    { "Content-Type": "application/json", "X-Telegram-Init-Data": initData },
+    options.headers || {}
+  );
+  const res = await fetch(path, Object.assign({}, options, { headers }));
+  if (!res.ok) {
+    let detail = "Xatolik yuz berdi";
+    try { detail = (await res.json()).detail || detail; } catch (e) {}
+    throw new Error(detail);
+  }
+  if (res.status === 204) return null;
+  const text = await res.text();
+  return text ? JSON.parse(text) : null;
+}
+
+// ---------------- Navigatsiya ----------------
+const pageTitles = {
+  trucks: "Moshinalar",
+  trips: "Reyslar",
+  expenses: "Xarajatlar",
+  legs: "Safarlar",
+  report: "Hisobot",
+  more: "Ko'proq",
+};
+
+document.querySelectorAll(".nav-btn").forEach(btn => {
+  btn.addEventListener("click", () => switchPage(btn.dataset.page));
+});
+
+function switchPage(page) {
+  state.page = page;
+  document.querySelectorAll(".nav-btn").forEach(b => b.classList.toggle("active", b.dataset.page === page));
+  document.querySelectorAll(".page").forEach(p => p.classList.remove("active"));
+  document.getElementById("page-" + page).classList.add("active");
+  document.getElementById("page-title").textContent = tr(pageTitles[page]);
+  document.getElementById("add-btn").style.display = page === "more" ? "none" : "flex";
+  renderPage(page);
+}
+
+document.getElementById("add-btn").addEventListener("click", () => {
+  if (state.page === "trucks") openAddTruckSheet();
+  if (state.page === "trips") openAddTripSheet();
+  if (state.page === "expenses") openAddExpenseSheet();
+  if (state.page === "legs") openAddLegSheet();
+  if (state.page === "report") showToast(tr("Hisobot avtomatik hisoblanadi"));
+});
+
+function closeSheet() {
+  document.getElementById("sheet-overlay").classList.remove("open");
+}
+document.getElementById("sheet-overlay").addEventListener("click", (e) => {
+  if (e.target.id === "sheet-overlay") closeSheet();
+});
+
+function openSheet(html) {
+  document.getElementById("sheet-content").innerHTML = html;
+  document.getElementById("sheet-overlay").classList.add("open");
+}
+
+// ---------------- Ma'lumotlarni yuklash ----------------
+async function loadAll() {
+  const [trucks, trips, activeTrips, report] = await Promise.all([
+    api("/api/trucks"),
+    api("/api/trips"),
+    api("/api/trips/active"),
+    api("/api/report"),
+  ]);
+  state.trucks = trucks;
+  state.trips = trips;
+  state.activeTrips = activeTrips;
+  state.report = report;
+
+  // Tanlangan reys endi mavjud bo'lmasa yoki hali tanlanmagan bo'lsa - birinchisini tanlaymiz
+  if (!state.activeTrips.find(t => t.id === state.selectedExpenseTripId)) {
+    state.selectedExpenseTripId = state.activeTrips.length ? state.activeTrips[0].id : null;
+  }
+  if (!state.activeTrips.find(t => t.id === state.selectedLegTripId)) {
+    state.selectedLegTripId = state.activeTrips.length ? state.activeTrips[0].id : null;
+  }
+}
+
+function renderPage(page) {
+  if (page === "trucks") renderTrucks();
+  if (page === "trips") renderTrips();
+  if (page === "expenses") renderExpenses();
+  if (page === "legs") renderLegs();
+  if (page === "report") renderReport();
+  if (page === "more") renderMore();
+}
+
+// ---------------- MOSHINALAR ----------------
+function renderTrucks() {
+  const el = document.getElementById("page-trucks");
+  if (state.trucks.length === 0) {
+    el.innerHTML = `<div class="empty-state">
+      <div class="glyph">🚛</div>
+      ${tr("Hali fura qo'shilmagan.")}<br>${tr("Boshlash uchun yuqoridagi + tugmasini bosing.")}
+    </div>`;
+    return;
+  }
+  el.innerHTML = state.trucks.map(t => `
+    <div class="card" data-truck-id="${t.id}">
+      <div class="card-top">
+        <div>
+          <div class="card-title">${escapeHtml(t.name)}</div>
+          <div class="card-sub">${tr("Qo'shilgan")}: ${escapeHtml(t.created_at)}</div>
+        </div>
+        <span class="badge">${tr("Ta'mirlash")}: ${formatSum(t.repair_total)}</span>
+      </div>
+    </div>
+  `).join("");
+  el.querySelectorAll(".card").forEach(card => {
+    card.addEventListener("click", () => openTruckDetail(Number(card.dataset.truckId)));
+  });
+}
+
+function openAddTruckSheet() {
+  openSheet(`
+    <h2>${tr("Yangi fura qo'shish")}</h2>
+    <div class="field">
+      <label>${tr("Fura nomi / raqami")}</label>
+      <input type="text" id="truck-name" placeholder="Masalan: Isuzu 01A123BB">
+    </div>
+    <div class="sheet-actions">
+      <button class="btn-secondary" onclick="closeSheet()">${tr("Bekor qilish")}</button>
+      <button class="btn-primary" onclick="submitAddTruck()">${tr("Saqlash")}</button>
+    </div>
+  `);
+}
+
+async function submitAddTruck() {
+  const name = document.getElementById("truck-name").value.trim();
+  if (!name) return showToast(tr("Nom kiriting"));
+  try {
+    await api("/api/trucks", { method: "POST", body: JSON.stringify({ name }) });
+    closeSheet();
+    await loadAll();
+    renderTrucks();
+    showToast(tr("Fura qo'shildi"));
+  } catch (e) { showToast(tr(e.message)); }
+}
+
+async function openTruckDetail(truckId) {
+  const truck = state.trucks.find(t => t.id === truckId);
+  const expenses = await api(`/api/trucks/${truckId}/expenses`);
+  const listHtml = expenses.length ? expenses.map(e => `
+    <div class="card">
+      <div class="card-top">
+        <div>
+          <div class="card-title">${escapeHtml(tr(e.category))}</div>
+          <div class="card-sub">${escapeHtml(e.created_at)}${e.note ? " · " + escapeHtml(e.note) : ""}</div>
+        </div>
+        <div class="amount-row">
+          <div class="card-amount">${formatSum(e.amount)}</div>
+          <button class="mini-delete" onclick="deleteTruckExpense(${truckId}, ${e.id})">✕</button>
+        </div>
+      </div>
+    </div>
+  `).join("") : `<div class="empty-state" style="padding:24px 0;">${tr("Xarajat yo'q")}</div>`;
+
+  openSheet(`
+    <h2>${escapeHtml(truck.name)}</h2>
+    <div class="sheet-actions" style="margin-bottom:16px;">
+      <button class="btn-primary" onclick="openAddTruckExpenseSheet(${truckId})">${tr("+ Xarajat qo'shish")}</button>
+      <button class="btn-danger" onclick="confirmDeleteTruck(${truckId})">${tr("O'chirish")}</button>
+    </div>
+    ${listHtml}
+  `);
+}
+
+async function deleteTruckExpense(truckId, expenseId) {
+  if (!confirm(tr("Ushbu xarajatni o'chirmoqchimisiz?"))) return;
+  try {
+    await api(`/api/trucks/${truckId}/expenses/${expenseId}`, { method: "DELETE" });
+    await loadAll();
+    renderTrucks();
+    openTruckDetail(truckId);
+    showToast(tr("Xarajat o'chirildi"));
+  } catch (e) { showToast(tr(e.message)); }
+}
+
+function openAddTruckExpenseSheet(truckId) {
+  openSheet(`
+    <h2>${tr("Fura xarajati")}</h2>
+    <div class="field">
+      <label>${tr("Turi")}</label>
+      <select id="truck-exp-category">
+        <option value="Ta'mirlash">${tr("Ta'mirlash")}</option>
+        <option value="Extiyot qismlari">${tr("Extiyot qismlari")}</option>
+        <option value="Boshqa">${tr("Boshqa")}</option>
+      </select>
+    </div>
+    <div class="field">
+      <label>${tr("Summasi (so'm)")}</label>
+      <input type="text" inputmode="decimal" id="truck-exp-amount" placeholder="0">
+    </div>
+    <div class="field">
+      <label>${tr("Izoh (ixtiyoriy)")}</label>
+      <input type="text" id="truck-exp-note" placeholder="">
+    </div>
+    <div class="sheet-actions">
+      <button class="btn-secondary" onclick="openTruckDetail(${truckId})">${tr("Orqaga")}</button>
+      <button class="btn-primary" onclick="submitAddTruckExpense(${truckId})">${tr("Saqlash")}</button>
+    </div>
+  `);
+}
+
+async function submitAddTruckExpense(truckId) {
+  const category = document.getElementById("truck-exp-category").value;
+  const amount = parseFloat(document.getElementById("truck-exp-amount").value.replace(",", ".").replace(/\s/g, ""));
+  const note = document.getElementById("truck-exp-note").value.trim();
+  if (!amount || amount <= 0) return showToast(tr("Summani kiriting"));
+  try {
+    await api(`/api/trucks/${truckId}/expenses`, {
+      method: "POST", body: JSON.stringify({ category, amount, note })
+    });
+    await loadAll();
+    renderTrucks();
+    showToast(tr("Xarajat qo'shildi"));
+    openTruckDetail(truckId);
+  } catch (e) { showToast(tr(e.message)); }
+}
+
+async function confirmDeleteTruck(truckId) {
+  if (!confirm(tr("Ushbu furani o'chirmoqchimisiz?"))) return;
+  try {
+    await api(`/api/trucks/${truckId}`, { method: "DELETE" });
+    closeSheet();
+    await loadAll();
+    renderTrucks();
+    showToast(tr("Fura o'chirildi"));
+  } catch (e) { showToast(tr(e.message)); }
+}
+
+// ---------------- REYSLAR ----------------
+function renderTrips() {
+  const el = document.getElementById("page-trips");
+  const active = state.trips.filter(t => t.status === "active");
+  const finished = state.trips.filter(t => t.status === "finished");
+
+  let html = "";
+
+  if (active.length === 0 && finished.length === 0) {
+    el.innerHTML = `<div class="empty-state">
+      <div class="glyph">🧭</div>
+      ${tr("Hali reys yo'q.")}<br>${tr("Yangi reys boshlash uchun + tugmasini bosing.")}
+    </div>`;
+    return;
+  }
+
+  if (active.length) {
+    html += `<div class="section-title">${tr("Faol reys")}</div>`;
+    html += active.map(t => tripCardHtml(t, true)).join("");
+  }
+  if (finished.length) {
+    html += `<div class="section-title">${tr("Tugagan reyslar")}</div>`;
+    html += finished.map(t => tripCardHtml(t, false)).join("");
+  }
+  el.innerHTML = html;
+
+  el.querySelectorAll(".card").forEach(card => {
+    card.addEventListener("click", () => openTripDetail(Number(card.dataset.tripId)));
+  });
+}
+
+function tripCardHtml(t, isActive) {
+  const profitClass = t.profit >= 0 ? "positive" : "negative";
+  return `
+    <div class="card" data-trip-id="${t.id}">
+      <div class="card-top">
+        <div>
+          <div class="card-title">${escapeHtml(t.truck_name)}</div>
+          <div class="card-sub">${escapeHtml(t.created_at)}</div>
+        </div>
+        <span class="badge ${isActive ? "active-badge" : ""}">${isActive ? tr("Faol") : tr("Tugagan")}</span>
+      </div>
+      <div class="card-row">
+        <span>${tr("Daromad")}: ${formatSum(t.income)}</span>
+        <span>${tr("Xarajat")}: ${formatSum(t.expense)}</span>
+      </div>
+      <div class="card-row">
+        <span class="card-amount value ${profitClass}">${tr("Foyda")}: ${formatSum(t.profit)}</span>
+      </div>
+    </div>
+  `;
+}
+
+function openAddTripSheet() {
+  if (state.trucks.length === 0) {
+    return openSheet(`
+      <h2>${tr("Avval fura qo'shing")}</h2>
+      <p style="color:var(--hint);">${tr("Reys boshlash uchun kamida bitta fura kerak.")}</p>
+      <div class="sheet-actions">
+        <button class="btn-primary" onclick="closeSheet()">${tr("Tushunarli")}</button>
+      </div>
+    `);
+  }
+  const activeTruckIds = new Set(state.activeTrips.map(t => t.truck_id));
+  const availableTrucks = state.trucks.filter(t => !activeTruckIds.has(t.id));
+  if (availableTrucks.length === 0) {
+    return openSheet(`
+      <h2>${tr("Barcha furalar band")}</h2>
+      <p style="color:var(--hint);">${tr("Barcha furalaringizda hozir faol reys bor. Yangisini boshlash uchun avval birortasini yakunlang, yoki yangi fura qo'shing.")}</p>
+      <div class="sheet-actions">
+        <button class="btn-primary" onclick="closeSheet()">${tr("Tushunarli")}</button>
+      </div>
+    `);
+  }
+  const options = availableTrucks.map(t => `<option value="${t.id}">${escapeHtml(t.name)}</option>`).join("");
+  openSheet(`
+    <h2>${tr("Yangi reys boshlash")}</h2>
+    <div class="field">
+      <label>${tr("Fura")}</label>
+      <select id="trip-truck-id">${options}</select>
+    </div>
+    <div class="sheet-actions">
+      <button class="btn-secondary" onclick="closeSheet()">${tr("Bekor qilish")}</button>
+      <button class="btn-primary" onclick="submitAddTrip()">${tr("Boshlash")}</button>
+    </div>
+  `);
+}
+
+async function submitAddTrip() {
+  const truckId = Number(document.getElementById("trip-truck-id").value);
+  try {
+    await api("/api/trips", { method: "POST", body: JSON.stringify({ truck_id: truckId }) });
+    closeSheet();
+    await loadAll();
+    renderTrips();
+    showToast(tr("Reys boshlandi"));
+  } catch (e) { showToast(tr(e.message)); }
+}
+
+async function openTripDetail(tripId) {
+  const trip = await api(`/api/trips/${tripId}`);
+  const legsHtml = trip.legs.length ? trip.legs.map(l => `
+    <div class="card-row">
+      <span>${escapeHtml(l.from_point)} → ${escapeHtml(l.to_point)}</span>
+      <span class="amount-row">
+        <span>${formatSum(l.price)}</span>
+        <button class="mini-delete" onclick="deleteTripLeg(${tripId}, ${l.id})">✕</button>
+      </span>
+    </div>
+  `).join("") : `<div class="card-row"><span style="color:var(--hint)">${tr("Safar qo'shilmagan")}</span></div>`;
+
+  const expHtml = trip.expenses.length ? trip.expenses.map(e => `
+    <div class="card-row">
+      <span>${escapeHtml(tr(e.category))}</span>
+      <span class="amount-row">
+        <span>${formatSum(e.amount)}</span>
+        <button class="mini-delete" onclick="deleteTripExpense(${tripId}, ${e.id})">✕</button>
+      </span>
+    </div>
+  `).join("") : `<div class="card-row"><span style="color:var(--hint)">${tr("Xarajat qo'shilmagan")}</span></div>`;
+
+  const profitClass = trip.profit >= 0 ? "positive" : "negative";
+
+  openSheet(`
+    <h2>${escapeHtml(trip.truck_name)} — ${tr("reys")} #${trip.id}</h2>
+    <div class="summary-card" style="margin-bottom:16px;">
+      <div class="summary-col">
+        <span class="label">Daromad</span>
+        <span class="value">${formatSum(trip.income)}</span>
+      </div>
+      <div class="summary-divider"></div>
+      <div class="summary-col">
+        <span class="label">Xarajat</span>
+        <span class="value">${formatSum(trip.expense)}</span>
+      </div>
+    </div>
+    <div class="card-amount value ${profitClass}" style="font-size:17px; margin-bottom:16px;">
+      ${tr("Sof foyda")}: ${formatSum(trip.profit)}
+    </div>
+    <div class="section-title">${tr("Safarlar")}</div>
+    ${legsHtml}
+    <div class="section-title">${tr("Xarajatlar")}</div>
+    ${expHtml}
+    <div class="sheet-actions" style="margin-top:18px;">
+      ${trip.status === "active" ? `<button class="btn-primary" onclick="confirmFinishTrip(${trip.id})">${tr("Reysni yakunlash")}</button>` : ""}
+      <button class="btn-danger" onclick="confirmDeleteTrip(${trip.id})">${tr("Reysni o'chirish")}</button>
+    </div>
+  `);
+}
+
+async function deleteTripLeg(tripId, legId) {
+  if (!confirm(tr("Ushbu safarni o'chirmoqchimisiz?"))) return;
+  try {
+    await api(`/api/trips/${tripId}/legs/${legId}`, { method: "DELETE" });
+    await loadAll();
+    renderTrips();
+    openTripDetail(tripId);
+    showToast(tr("Safar o'chirildi"));
+  } catch (e) { showToast(tr(e.message)); }
+}
+
+async function deleteTripExpense(tripId, expenseId) {
+  if (!confirm(tr("Ushbu xarajatni o'chirmoqchimisiz?"))) return;
+  try {
+    await api(`/api/trips/${tripId}/expenses/${expenseId}`, { method: "DELETE" });
+    await loadAll();
+    renderTrips();
+    openTripDetail(tripId);
+    showToast(tr("Xarajat o'chirildi"));
+  } catch (e) { showToast(tr(e.message)); }
+}
+
+async function confirmDeleteTrip(tripId) {
+  if (!confirm(tr("Reysni butunlay o'chirmoqchimisiz? Bu amalni ortga qaytarib bo'lmaydi."))) return;
+  try {
+    await api(`/api/trips/${tripId}`, { method: "DELETE" });
+    closeSheet();
+    await loadAll();
+    renderTrips();
+    showToast(tr("Reys o'chirildi"));
+  } catch (e) { showToast(tr(e.message)); }
+}
+
+async function confirmFinishTrip(tripId) {
+  if (!confirm(tr("Reysni yakunlaysizmi? Bu amalni ortga qaytarib bo'lmaydi."))) return;
+  try {
+    await api(`/api/trips/${tripId}/finish`, { method: "POST" });
+    closeSheet();
+    await loadAll();
+    renderTrips();
+    showToast(tr("Reys yakunlandi"));
+  } catch (e) { showToast(tr(e.message)); }
+}
+
+// ---------------- XARAJATLAR (faol reys) ----------------
+function truckSwitcherHtml(activeTrips, selectedId, onclickFnName) {
+  if (activeTrips.length < 2) return "";
+  return `<div style="display:flex; gap:8px; overflow-x:auto; margin-bottom:14px; padding-bottom:2px;">
+    ${activeTrips.map(t => `
+      <button onclick="${onclickFnName}(${t.id})"
+        style="white-space:nowrap; border:none; border-radius:20px; padding:8px 14px; font-size:13px; font-weight:700;
+               background:${t.id === selectedId ? "var(--amber)" : "var(--card)"};
+               color:${t.id === selectedId ? "#1a1a1a" : "var(--text)"}; cursor:pointer;">
+        ${escapeHtml(t.truck_name)}
+      </button>
+    `).join("")}
+  </div>`;
+}
+
+function selectExpenseTrip(tripId) {
+  state.selectedExpenseTripId = tripId;
+  renderExpenses();
+}
+
+async function renderExpenses() {
+  const el = document.getElementById("page-expenses");
+  if (state.activeTrips.length === 0) {
+    el.innerHTML = `<div class="empty-state">
+      <div class="glyph">💸</div>
+      ${tr("Faol reys yo'q.")}<br>${tr('Avval "Reyslar" bo\'limida reys boshlang.')}
+    </div>`;
+    return;
+  }
+  const tripId = state.selectedExpenseTripId || state.activeTrips[0].id;
+  const trip = await api(`/api/trips/${tripId}`);
+  const total = trip.expense;
+  const listHtml = trip.expenses.length ? trip.expenses.map(e => `
+    <div class="card">
+      <div class="card-top">
+        <div>
+          <div class="card-title">${escapeHtml(tr(e.category))}</div>
+          <div class="card-sub">${escapeHtml(e.created_at)}${e.note ? " · " + escapeHtml(e.note) : ""}</div>
+        </div>
+        <div class="amount-row">
+          <div class="card-amount">${formatSum(e.amount)}</div>
+          <button class="mini-delete" onclick="deleteExpenseFromList(${tripId}, ${e.id})">✕</button>
+        </div>
+      </div>
+    </div>
+  `).join("") : `<div class="empty-state" style="padding:24px 0;">${tr("Hali xarajat kiritilmagan")}</div>`;
+
+  el.innerHTML = `
+    ${truckSwitcherHtml(state.activeTrips, tripId, "selectExpenseTrip")}
+    <div class="card-sub" style="margin-bottom:10px;">${escapeHtml(trip.truck_name)} — ${tr("joriy reys")}</div>
+    <div class="big-total">
+      <div class="label">${tr("Jami xarajat")}</div>
+      <div class="value">${formatSum(total)}</div>
+    </div>
+    ${listHtml}
+  `;
+}
+
+async function deleteExpenseFromList(tripId, expenseId) {
+  if (!confirm(tr("Ushbu xarajatni o'chirmoqchimisiz?"))) return;
+  try {
+    await api(`/api/trips/${tripId}/expenses/${expenseId}`, { method: "DELETE" });
+    await loadAll();
+    renderExpenses();
+    showToast(tr("Xarajat o'chirildi"));
+  } catch (e) { showToast(tr(e.message)); }
+}
+
+function openAddExpenseSheet() {
+  if (state.activeTrips.length === 0) {
+    return openSheet(`
+      <h2>Faol reys yo'q</h2>
+      <p style="color:var(--hint);">Xarajat qo'shish uchun avval reys boshlang.</p>
+      <div class="sheet-actions"><button class="btn-primary" onclick="closeSheet()">${tr("Tushunarli")}</button></div>
+    `);
+  }
+  openSheet(`
+    <h2>${tr("Xarajat qo'shish")}</h2>
+    <div class="field">
+      <label>${tr("Turi")}</label>
+      <select id="exp-category">
+        <option value="Yoqilg'i">${tr("Yoqilg'i")}</option>
+        <option value="Yo'l haqi">${tr("Yo'l haqi")}</option>
+        <option value="Ovqatlanish">${tr("Ovqatlanish")}</option>
+        <option value="Boshqa">${tr("Boshqa")}</option>
+      </select>
+    </div>
+    <div class="field">
+      <label>${tr("Summasi (so'm)")}</label>
+      <input type="text" inputmode="decimal" id="exp-amount" placeholder="0">
+    </div>
+    <div class="field">
+      <label>${tr("Izoh (ixtiyoriy)")}</label>
+      <input type="text" id="exp-note" placeholder="">
+    </div>
+    <div class="sheet-actions">
+      <button class="btn-secondary" onclick="closeSheet()">${tr("Bekor qilish")}</button>
+      <button class="btn-primary" onclick="submitAddExpense()">${tr("Saqlash")}</button>
+    </div>
+  `);
+}
+
+async function submitAddExpense() {
+  const category = document.getElementById("exp-category").value;
+  const amount = parseFloat(document.getElementById("exp-amount").value.replace(",", ".").replace(/\s/g, ""));
+  const note = document.getElementById("exp-note").value.trim();
+  if (!amount || amount <= 0) return showToast(tr("Summani kiriting"));
+  const tripId = state.selectedExpenseTripId || state.activeTrips[0].id;
+  try {
+    await api(`/api/trips/${tripId}/expenses`, {
+      method: "POST", body: JSON.stringify({ category, amount, note })
+    });
+    closeSheet();
+    await loadAll();
+    renderExpenses();
+    showToast(tr("Xarajat qo'shildi"));
+  } catch (e) { showToast(tr(e.message)); }
+}
+
+// ---------------- SAFARLAR (faol reys) ----------------
+function selectLegTrip(tripId) {
+  state.selectedLegTripId = tripId;
+  renderLegs();
+}
+
+async function renderLegs() {
+  const el = document.getElementById("page-legs");
+  if (state.activeTrips.length === 0) {
+    el.innerHTML = `<div class="empty-state">
+      <div class="glyph">📍</div>
+      ${tr("Faol reys yo'q.")}<br>${tr('Avval "Reyslar" bo\'limida reys boshlang.')}
+    </div>`;
+    return;
+  }
+  const tripId = state.selectedLegTripId || state.activeTrips[0].id;
+  const trip = await api(`/api/trips/${tripId}`);
+  const total = trip.income;
+  const listHtml = trip.legs.length ? trip.legs.map(l => `
+    <div class="card">
+      <div class="card-top">
+        <div>
+          <div class="card-title">${escapeHtml(l.from_point)} → ${escapeHtml(l.to_point)}</div>
+          <div class="card-sub">${escapeHtml(l.created_at)}</div>
+        </div>
+        <div class="amount-row">
+          <div class="card-amount">${formatSum(l.price)}</div>
+          <button class="mini-delete" onclick="deleteLegFromList(${tripId}, ${l.id})">✕</button>
+        </div>
+      </div>
+    </div>
+  `).join("") : `<div class="empty-state" style="padding:24px 0;">${tr("Hali safar kiritilmagan")}</div>`;
+
+  el.innerHTML = `
+    ${truckSwitcherHtml(state.activeTrips, tripId, "selectLegTrip")}
+    <div class="card-sub" style="margin-bottom:10px;">${escapeHtml(trip.truck_name)} — ${tr("joriy reys")}</div>
+    <div class="big-total">
+      <div class="label">${tr("Jami daromad")}</div>
+      <div class="value">${formatSum(total)}</div>
+    </div>
+    ${listHtml}
+  `;
+}
+
+async function deleteLegFromList(tripId, legId) {
+  if (!confirm(tr("Ushbu safarni o'chirmoqchimisiz?"))) return;
+  try {
+    await api(`/api/trips/${tripId}/legs/${legId}`, { method: "DELETE" });
+    await loadAll();
+    renderLegs();
+    showToast(tr("Safar o'chirildi"));
+  } catch (e) { showToast(tr(e.message)); }
+}
+
+function openAddLegSheet() {
+  if (state.activeTrips.length === 0) {
+    return openSheet(`
+      <h2>Faol reys yo'q</h2>
+      <p style="color:var(--hint);">Safar qo'shish uchun avval reys boshlang.</p>
+      <div class="sheet-actions"><button class="btn-primary" onclick="closeSheet()">${tr("Tushunarli")}</button></div>
+    `);
+  }
+  openSheet(`
+    <h2>${tr("Safar qo'shish")}</h2>
+    <div class="field">
+      <label>${tr("Qayerdan")}</label>
+      <input type="text" id="leg-from" placeholder="Masalan: Toshkent">
+    </div>
+    <div class="field">
+      <label>${tr("Qayerga")}</label>
+      <input type="text" id="leg-to" placeholder="Masalan: Samarqand">
+    </div>
+    <div class="field">
+      <label>${tr("Narxi (so'm)")}</label>
+      <input type="text" inputmode="decimal" id="leg-price" placeholder="0">
+    </div>
+    <div class="sheet-actions">
+      <button class="btn-secondary" onclick="closeSheet()">${tr("Bekor qilish")}</button>
+      <button class="btn-primary" onclick="submitAddLeg()">${tr("Saqlash")}</button>
+    </div>
+  `);
+}
+
+async function submitAddLeg() {
+  const from_point = document.getElementById("leg-from").value.trim();
+  const to_point = document.getElementById("leg-to").value.trim();
+  const price = parseFloat(document.getElementById("leg-price").value.replace(",", ".").replace(/\s/g, ""));
+  if (!from_point || !to_point) return showToast(tr("Yo'nalishni kiriting"));
+  if (!price || price <= 0) return showToast(tr("Narxni kiriting"));
+  const tripId = state.selectedLegTripId || state.activeTrips[0].id;
+  try {
+    await api(`/api/trips/${tripId}/legs`, {
+      method: "POST", body: JSON.stringify({ from_point, to_point, price })
+    });
+    closeSheet();
+    await loadAll();
+    renderLegs();
+    showToast(tr("Safar qo'shildi"));
+  } catch (e) { showToast(tr(e.message)); }
+}
+
+// ---------------- HISOBOT ----------------
+function renderReport() {
+  const el = document.getElementById("page-report");
+  const r = state.report;
+  if (!r || (r.total_income === 0 && r.total_expense === 0)) {
+    el.innerHTML = `<div class="empty-state">
+      <div class="glyph">📊</div>
+      ${tr("Hali statistika uchun ma'lumot yo'q.")}
+    </div>`;
+    return;
+  }
+  const profitClass = r.net_profit >= 0 ? "positive" : "negative";
+
+  const maxMonth = Math.max(1, ...r.by_month.map(m => Math.max(m.income, m.expense)));
+  const monthsHtml = r.by_month.map(m => `
+    <div class="month-bar-row">
+      <div class="month-bar-label"><span class="m">${escapeHtml(m.month)}</span><span>${formatSum(m.profit)}</span></div>
+      <div class="month-bar-track">
+        <div class="month-bar-fill income" style="width:${(m.income / maxMonth * 100).toFixed(1)}%"></div>
+      </div>
+      <div class="month-bar-track" style="margin-top:3px;">
+        <div class="month-bar-fill expense" style="width:${(m.expense / maxMonth * 100).toFixed(1)}%"></div>
+      </div>
+    </div>
+  `).join("");
+
+  const trucksHtml = r.by_truck.map(t => `
+    <div class="card">
+      <div class="card-top">
+        <div class="card-title">${escapeHtml(t.name)}</div>
+        <div class="card-amount value ${t.profit >= 0 ? "positive" : "negative"}">${formatSum(t.profit)}</div>
+      </div>
+      <div class="card-row">
+        <span>${tr("Daromad")}: ${formatSum(t.income)}</span>
+        <span>${tr("Xarajat")}: ${formatSum(t.expense)}</span>
+      </div>
+    </div>
+  `).join("");
+
+  el.innerHTML = `
+    <div class="big-total">
+      <div class="label">${tr("Sof foyda / zarar")}</div>
+      <div class="value ${profitClass}">${formatSum(r.net_profit)}</div>
+    </div>
+    <div class="summary-card">
+      <div class="summary-col">
+        <span class="label">${tr("Jami daromad")}</span>
+        <span class="value">${formatSum(r.total_income)}</span>
+      </div>
+      <div class="summary-divider"></div>
+      <div class="summary-col">
+        <span class="label">${tr("Jami xarajat")}</span>
+        <span class="value">${formatSum(r.total_expense)}</span>
+      </div>
+    </div>
+    <div class="section-title">${tr("Oylar kesimida")}</div>
+    ${monthsHtml || `<div class="card-sub">${tr("Ma'lumot yo'q")}</div>`}
+    <div class="section-title">${tr("Moshinalar kesimida")}</div>
+    ${trucksHtml || `<div class="card-sub">${tr("Ma'lumot yo'q")}</div>`}
+  `;
+}
+
+// ---------------- KO'PROQ ----------------
+const SUPPORT_CARD_NUMBER = "5614 6818 1030 5767";
+const SUPPORT_CARD_HOLDER = "A.I";
+
+function renderMore() {
+  const el = document.getElementById("page-more");
+  el.innerHTML = `
+    <div class="section-title">${tr("Til")}</div>
+    <div class="lang-switch">
+      <button class="lang-btn ${currentLang === "lotin" ? "active" : ""}" onclick="setLanguage('lotin')">Lotin</button>
+      <button class="lang-btn ${currentLang === "kirill" ? "active" : ""}" onclick="setLanguage('kirill')">Кирилл</button>
+    </div>
+
+    <div class="section-title">${tr("Valyuta")}</div>
+    <div class="lang-switch">
+      <button class="lang-btn ${currentCurrency === "UZS" ? "active" : ""}" onclick="setCurrency('UZS')">UZS</button>
+      <button class="lang-btn ${currentCurrency === "USD" ? "active" : ""}" onclick="setCurrency('USD')">USD</button>
+    </div>
+    <p style="color: var(--hint); font-size: 12px; margin: -12px 0 22px 2px;">${tr("Kurs taxminiy: 1 USD ~ 12 000 so'm. Barcha ma'lumot so'mda saqlanadi, faqat ko'rinishi o'zgaradi.")}</p>
+
+    <div class="section-title">${tr("Qo'llab-quvvatlash")}</div>
+    <div class="support-card">
+      <div class="glyph">☕</div>
+      <p>${tr("Bu bot mustaqil ishlab chiqilgan va bepul taqdim etiladi. Agar foydali deb topsangiz, rivojlantirishni qo'llab-quvvatlashingiz mumkin.")}</p>
+      <div style="font-family: var(--font-mono); font-size: 19px; font-weight: 700; letter-spacing: 0.5px; margin-bottom: 4px;">
+        ${SUPPORT_CARD_NUMBER}
+      </div>
+      <div style="color: var(--hint); font-size: 13px; margin-bottom: 18px;">${SUPPORT_CARD_HOLDER}</div>
+      <button class="support-btn" onclick="copySupportCard()">${tr("Nusxalash")}</button>
+    </div>
+  `;
+}
+
+function copySupportCard() {
+  const number = SUPPORT_CARD_NUMBER.replace(/\s/g, "");
+  if (navigator.clipboard && navigator.clipboard.writeText) {
+    navigator.clipboard.writeText(number)
+      .then(() => showToast(tr("Nusxalandi")))
+      .catch(() => showToast(number));
+  } else {
+    showToast(number);
+  }
+}
+
+
+
+// ---------------- Ishga tushirish ----------------
+(async function init() {
+  applyStaticLabels();
+  try {
+    await loadAll();
+    renderPage(state.page);
+  } catch (e) {
+    document.getElementById("page-trucks").innerHTML = `<div class="empty-state">Xatolik: ${escapeHtml(e.message)}</div>`;
+  }
+})();
+
+</script>
+</body>
+</html>
