@@ -321,7 +321,7 @@ async def run_bot():
 
 async def run_web():
     port = int(os.getenv("PORT", 8000))
-    config = uvicorn.Config(app, host="0.0.0.0", port=port, log_level="info")
+    config = uvicorn.Config(app, host=os.getenv("HOST", "0.0.0.0"), port=port, log_level="info")
     server = uvicorn.Server(config)
     await server.serve()
 

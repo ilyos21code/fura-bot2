@@ -1,6 +1,8 @@
+import os
+
 import aiosqlite
 
-DB_PATH = "fura.db"
+DB_PATH = os.getenv("DB_PATH", "fura.db")
 
 SCHEMA = """
 CREATE TABLE IF NOT EXISTS users (

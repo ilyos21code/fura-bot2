@@ -1,0 +1,56 @@
+# Fura Mini App (fura-bot2) — systemd unit (deploy/install.sh o'rnatadi).
+# FastAPI 127.0.0.1:8400 da, tashqariga Caddy orqali HTTPS bilan chiqadi.
+# Bot Telegram long-polling — faqat chiquvchi HTTPS.
+
+[Unit]
+Description=Fura Mini App (fura-bot2)
+After=network-online.target
+Wants=network-online.target
+StartLimitIntervalSec=600
+StartLimitBurst=5
+
+[Service]
+Type=simple
+User=furabot2
+Group=furabot2
+WorkingDirectory=/opt/fura-bot2/app
+EnvironmentFile=/etc/fura-bot2/env
+Environment=DB_PATH=/var/lib/fura-bot2/fura.db
+Environment=HOST=127.0.0.1
+Environment=PORT=8400
+Environment=TZ=Asia/Tashkent
+Environment=PYTHONUNBUFFERED=1
+Environment=PYTHONDONTWRITEBYTECODE=1
+ExecStart=/opt/fura-bot2/venv/bin/python main.py
+Restart=always
+RestartSec=15
+TimeoutStopSec=20
+StandardOutput=append:/var/log/fura-bot2/bot.log
+StandardError=append:/var/log/fura-bot2/bot.log
+
+MemoryHigh=256M
+MemoryMax=384M
+MemorySwapMax=0
+CPUQuota=50%
+CPUWeight=50
+IOWeight=50
+TasksMax=32
+LimitNOFILE=1024
+Nice=5
+
+NoNewPrivileges=true
+ProtectSystem=strict
+ReadWritePaths=/var/lib/fura-bot2 /var/log/fura-bot2
+ProtectHome=true
+PrivateTmp=true
+PrivateDevices=true
+ProtectKernelTunables=true
+ProtectKernelModules=true
+ProtectControlGroups=true
+RestrictSUIDSGID=true
+LockPersonality=true
+RestrictNamespaces=true
+RestrictAddressFamilies=AF_INET AF_INET6 AF_UNIX
+
+[Install]
+WantedBy=multi-user.target
