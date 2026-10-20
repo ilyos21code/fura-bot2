@@ -1,11 +1,12 @@
 import asyncio
 import logging
 import os
+from typing import Annotated
 
 from fastapi import FastAPI, Header, HTTPException
 from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
-from pydantic import BaseModel
+from pydantic import BaseModel, Field, StringConstraints
 import uvicorn
 
 import database as db
@@ -13,7 +14,7 @@ from auth import validate_init_data, InitDataError
 
 logging.basicConfig(level=logging.INFO)
 
-BOT_TOKEN = os.getenv("BOT_TOKEN", "PUT_YOUR_TOKEN_HERE")
+BOT_TOKEN = os.getenv("BOT_TOKEN", "")
 DEV_MODE = os.getenv("DEV_MODE", "0") == "1"
 
 app = FastAPI(title="Fura Mini App")
@@ -23,6 +24,9 @@ async def get_user_id(x_telegram_init_data: str = Header(default="")) -> int:
     if DEV_MODE and not x_telegram_init_data:
         # Faqat lokal test uchun: haqiqiy Telegram ma'lumoti bo'lmasa ham ishlash imkonini beradi
         return await db.get_or_create_user(telegram_id=999999999, full_name="Dev User")
+    if not BOT_TOKEN:
+        # Tokensiz imzoni tekshirib bo'lmaydi - har qanday so'rovni rad etamiz
+        raise HTTPException(status_code=503, detail="BOT_TOKEN sozlanmagan")
     try:
         user = validate_init_data(x_telegram_init_data, BOT_TOKEN)
     except InitDataError as e:
@@ -33,14 +37,19 @@ async def get_user_id(x_telegram_init_data: str = Header(default="")) -> int:
 
 
 # ---------------- Pydantic modellar ----------------
+Text = Annotated[str, StringConstraints(strip_whitespace=True, min_length=1, max_length=200)]
+Note = Annotated[str, StringConstraints(strip_whitespace=True, max_length=500)]
+Money = Annotated[float, Field(gt=0, allow_inf_nan=False)]
+
+
 class TruckIn(BaseModel):
-    name: str
+    name: Text
 
 
 class TruckExpenseIn(BaseModel):
-    category: str
-    amount: float
-    note: str = ""
+    category: Text
+    amount: Money
+    note: Note = ""
 
 
 class TripIn(BaseModel):
@@ -48,15 +57,15 @@ class TripIn(BaseModel):
 
 
 class TripExpenseIn(BaseModel):
-    category: str
-    amount: float
-    note: str = ""
+    category: Text
+    amount: Money
+    note: Note = ""
 
 
 class TripLegIn(BaseModel):
-    from_point: str
-    to_point: str
-    price: float
+    from_point: Text
+    to_point: Text
+    price: Money
 
 
 # ---------------- Trucks ----------------
@@ -73,13 +82,16 @@ async def api_list_trucks(x_telegram_init_data: str = Header(default="")):
 @app.post("/api/trucks")
 async def api_add_truck(payload: TruckIn, x_telegram_init_data: str = Header(default="")):
     user_id = await get_user_id(x_telegram_init_data)
-    truck_id = await db.add_truck(user_id, payload.name.strip())
-    return {"id": truck_id, "name": payload.name.strip()}
+    truck_id = await db.add_truck(user_id, payload.name)
+    return {"id": truck_id, "name": payload.name}
 
 
 @app.delete("/api/trucks/{truck_id}")
 async def api_delete_truck(truck_id: int, x_telegram_init_data: str = Header(default="")):
     user_id = await get_user_id(x_telegram_init_data)
+    truck = await db.get_truck(user_id, truck_id)
+    if not truck:
+        raise HTTPException(404, "Fura topilmadi")
     await db.delete_truck(user_id, truck_id)
     return {"ok": True}
 
@@ -246,7 +258,7 @@ async def api_add_trip_leg(
     if not trip:
         raise HTTPException(404, "Reys topilmadi")
     leg_id = await db.add_trip_leg(
-        trip_id, payload.from_point.strip(), payload.to_point.strip(), payload.price
+        trip_id, payload.from_point, payload.to_point, payload.price
     )
     return {"id": leg_id}
 
@@ -284,6 +296,17 @@ async def serve_index():
 
 
 async def run_bot():
+    if not BOT_TOKEN:
+        logging.warning("BOT_TOKEN berilmagan - bot ishga tushmaydi, faqat veb-server ishlaydi")
+        return
+    try:
+        await _run_bot()
+    except Exception:
+        # Bot yiqilsa ham veb-server (Mini App) ishlashda davom etsin
+        logging.exception("Bot to'xtadi")
+
+
+async def _run_bot():
     import time
     from aiogram import Bot, Dispatcher
     from aiogram.filters import CommandStart
@@ -315,7 +338,6 @@ async def run_bot():
         else:
             await message.answer("Bot sozlanmoqda, WEBAPP_URL hali berilmagan.")
 
-    await db.init_db()
     await dp.start_polling(bot)
 
 

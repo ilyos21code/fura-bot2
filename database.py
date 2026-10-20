@@ -1,6 +1,9 @@
+import os
+
 import aiosqlite
 
-DB_PATH = "fura.db"
+# Hostingda doimiy diskka yo'naltirish uchun: DB_PATH=/var/data/fura.db
+DB_PATH = os.getenv("DB_PATH", "fura.db")
 
 SCHEMA = """
 CREATE TABLE IF NOT EXISTS users (
@@ -110,7 +113,17 @@ async def get_truck(user_id: int, truck_id: int):
 
 
 async def delete_truck(user_id: int, truck_id: int):
+    """Furani uning ta'mirlash xarajatlari va barcha reyslari bilan birga o'chiradi."""
     async with aiosqlite.connect(DB_PATH) as conn:
+        cur = await conn.execute(
+            "SELECT id FROM trucks WHERE id=? AND user_id=?", (truck_id, user_id)
+        )
+        if not await cur.fetchone():
+            return
+        trip_ids = "SELECT id FROM trips WHERE truck_id=? AND user_id=?"
+        await conn.execute(f"DELETE FROM trip_expenses WHERE trip_id IN ({trip_ids})", (truck_id, user_id))
+        await conn.execute(f"DELETE FROM trip_legs WHERE trip_id IN ({trip_ids})", (truck_id, user_id))
+        await conn.execute("DELETE FROM trips WHERE truck_id=? AND user_id=?", (truck_id, user_id))
         await conn.execute("DELETE FROM truck_expenses WHERE truck_id=?", (truck_id,))
         await conn.execute("DELETE FROM trucks WHERE id=? AND user_id=?", (truck_id, user_id))
         await conn.commit()
@@ -192,6 +205,9 @@ async def finish_trip(user_id: int, trip_id: int):
 
 async def delete_trip(user_id: int, trip_id: int):
     async with aiosqlite.connect(DB_PATH) as conn:
+        cur = await conn.execute("SELECT id FROM trips WHERE id=? AND user_id=?", (trip_id, user_id))
+        if not await cur.fetchone():
+            return
         await conn.execute("DELETE FROM trip_expenses WHERE trip_id=?", (trip_id,))
         await conn.execute("DELETE FROM trip_legs WHERE trip_id=?", (trip_id,))
         await conn.execute("DELETE FROM trips WHERE id=? AND user_id=?", (trip_id, user_id))
@@ -284,17 +300,17 @@ async def list_trip_legs(trip_id: int):
 # ---------------- Report ----------------
 async def get_report(user_id: int):
     async with aiosqlite.connect(DB_PATH) as conn:
-        # Overall totals
+        # Umumiy summalar (o'chirilgan furalarning eski reyslari hisobga olinmaydi)
+        own_trips = """SELECT tr.id FROM trips tr JOIN trucks t ON t.id = tr.truck_id
+                       WHERE tr.user_id=?"""
         cur = await conn.execute(
-            """SELECT COALESCE(SUM(price),0) FROM trip_legs
-               WHERE trip_id IN (SELECT id FROM trips WHERE user_id=?)""",
+            f"SELECT COALESCE(SUM(price),0) FROM trip_legs WHERE trip_id IN ({own_trips})",
             (user_id,),
         )
         total_income = (await cur.fetchone())[0]
 
         cur = await conn.execute(
-            """SELECT COALESCE(SUM(amount),0) FROM trip_expenses
-               WHERE trip_id IN (SELECT id FROM trips WHERE user_id=?)""",
+            f"SELECT COALESCE(SUM(amount),0) FROM trip_expenses WHERE trip_id IN ({own_trips})",
             (user_id,),
         )
         total_trip_expense = (await cur.fetchone())[0]
@@ -306,13 +322,14 @@ async def get_report(user_id: int):
         )
         total_repair = (await cur.fetchone())[0]
 
-        # By month (based on trip creation date)
+        # Oylar kesimida (reys boshlangan sana bo'yicha): avval har bir reys alohida
+        # hisoblanadi, keyin oy bo'yicha jamlanadi
         cur = await conn.execute(
             """SELECT strftime('%Y-%m', tr.created_at) as month,
-                      COALESCE(SUM(l.price),0) as income,
-                      COALESCE((SELECT SUM(amount) FROM trip_expenses WHERE trip_id=tr.id),0) as expense
+                      SUM(COALESCE((SELECT SUM(price) FROM trip_legs WHERE trip_id=tr.id),0)) as income,
+                      SUM(COALESCE((SELECT SUM(amount) FROM trip_expenses WHERE trip_id=tr.id),0)) as expense
                FROM trips tr
-               LEFT JOIN trip_legs l ON l.trip_id = tr.id
+               JOIN trucks t ON t.id = tr.truck_id
                WHERE tr.user_id=?
                GROUP BY month ORDER BY month DESC""",
             (user_id,),
