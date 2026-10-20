@@ -43,10 +43,12 @@ qadam-baqadam sozlaymiz — hoziroq bezovta bo'lishingiz shart emas.
 - Yangi fura qo'shish
 - Har bir furaga ta'mirlash/balon kabi xarajatlarni yozib borish
 - Har bir fura kartasida jami ta'mirlash summasi ko'rinadi
+- Fura o'chirilsa, uning barcha reyslari ham birga o'chadi
 
 ### 🧭 Reyslar
 - Yangi reys boshlash (fura tanlanadi)
-- Bir vaqtning o'zida faqat bitta faol reys bo'lishi mumkin
+- Har bir furada bir vaqtning o'zida faqat bitta faol reys bo'lishi mumkin
+  (bir nechta fura bo'lsa, har biri o'z reysida yurishi mumkin)
 - Har bir reys kartasida: daromad, xarajat, sof foyda
 - Reysni bosib, uning to'liq tafsilotini (safarlar + xarajatlar) ko'rish mumkin
 - "Reysni yakunlash" tugmasi bilan reysni yopish
@@ -63,6 +65,18 @@ qadam-baqadam sozlaymiz — hoziroq bezovta bo'lishingiz shart emas.
 - Umumiy sof foyda/zarar
 - Oylar kesimida daromad/xarajat taqqoslash
 - Har bir fura bo'yicha alohida foyda/zarar
+
+## Ma'lumotlar qayerda saqlanadi
+
+Barcha ma'lumot SQLite faylida (`fura.db`) saqlanadi. Joyini `DB_PATH` sozlamasi
+bilan o'zgartirish mumkin.
+
+**Diqqat:** Render.com'ning bepul tarifida disk vaqtinchalik — har bir deploy yoki
+qayta ishga tushishda fayl o'chib ketadi va **barcha ma'lumot yo'qoladi**. Bundan
+tashqari, bepul server 15 daqiqa so'rov kelmasa uxlab qoladi va bot `/start`ga
+javob bermay qo'yadi. Ma'lumot saqlanib qolishi uchun doimiy disk (Render'da
+"Persistent Disk", masalan `/var/data`) ulab, `DB_PATH=/var/data/fura.db` qilib
+qo'ying.
 
 ## Lokal sinov (ixtiyoriy, dasturchilar uchun)
 
