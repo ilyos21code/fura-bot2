@@ -83,6 +83,12 @@ async def get_or_create_user(telegram_id: int, full_name: str = "") -> int:
         return cur.lastrowid
 
 
+async def list_telegram_ids() -> list[int]:
+    async with aiosqlite.connect(DB_PATH) as conn:
+        cur = await conn.execute("SELECT telegram_id FROM users")
+        return [r[0] for r in await cur.fetchall()]
+
+
 # ---------------- Trucks ----------------
 async def add_truck(user_id: int, name: str) -> int:
     async with aiosqlite.connect(DB_PATH) as conn:
