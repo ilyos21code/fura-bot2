@@ -8,7 +8,7 @@ from typing import Annotated
 from aiogram import Bot, Dispatcher, F
 from aiogram.filters import CommandStart
 from aiogram.types import (
-    CallbackQuery, InlineKeyboardButton, InlineKeyboardMarkup, Message, WebAppInfo,
+    CallbackQuery, InlineKeyboardButton, InlineKeyboardMarkup, MenuButtonWebApp, Message, WebAppInfo,
 )
 from fastapi import FastAPI, Header, HTTPException, Query
 from fastapi.responses import FileResponse
@@ -555,17 +555,39 @@ else:
     WEBAPP_URL_VERSIONED = ""
 
 
+# Chat pastidagi doimiy "Ochish" tugmasi. Eski xostingdan qolgan chatlarda u eski
+# manzilga olib borardi, umumiy (default) tugma esa Telegram'da qo'llanmadi —
+# shuning uchun har bir chatga alohida o'rnatiladi.
+MENU_BUTTON = (
+    MenuButtonWebApp(text="Ochish", web_app=WebAppInfo(url=WEBAPP_URL_VERSIONED)) if WEBAPP_URL else None
+)
+_menu_set: set[int] = set()
+
+
+async def ensure_menu(chat_id: int):
+    if not MENU_BUTTON or chat_id in _menu_set:
+        return
+    try:
+        await bot.set_chat_menu_button(chat_id=chat_id, menu_button=MENU_BUTTON)
+        _menu_set.add(chat_id)
+    except Exception:
+        logging.warning("Menyu tugmasi o'rnatilmadi: chat %s", chat_id)
+
+
+async def send_open(message: Message, text: str):
+    if not WEBAPP_URL_VERSIONED:
+        await message.answer("Bot sozlanmoqda, WEBAPP_URL hali berilmagan.")
+        return
+    await ensure_menu(message.chat.id)
+    kb = InlineKeyboardMarkup(
+        inline_keyboard=[[InlineKeyboardButton(text="Ochish", web_app=WebAppInfo(url=WEBAPP_URL_VERSIONED))]]
+    )
+    await message.answer(text, reply_markup=kb)
+
+
 @dp.message(CommandStart())
 async def bot_start(message: Message):
-    if WEBAPP_URL_VERSIONED:
-        kb = InlineKeyboardMarkup(
-            inline_keyboard=[[InlineKeyboardButton(text="Ochish", web_app=WebAppInfo(url=WEBAPP_URL_VERSIONED))]]
-        )
-        await message.answer(
-            "Assalomu alaykum! Fura reyslaringizni shu yerdan boshqaring:", reply_markup=kb
-        )
-    else:
-        await message.answer("Bot sozlanmoqda, WEBAPP_URL hali berilmagan.")
+    await send_open(message, "Assalomu alaykum! Fura reyslaringizni shu yerdan boshqaring:")
 
 
 @dp.callback_query(F.data.startswith("watch:"))
@@ -589,11 +611,31 @@ async def bot_watch_decision(callback: CallbackQuery):
     )
 
 
+
+@dp.message(F.chat.type == "private")
+async def bot_any_message(message: Message):
+    await send_open(message, "Ilovani ochish uchun pastdagi tugmani bosing:")
+
+
+async def setup_menu_buttons():
+    if not MENU_BUTTON:
+        return
+    try:
+        await bot.set_chat_menu_button(menu_button=MENU_BUTTON)
+    except Exception:
+        logging.warning("Umumiy menyu tugmasi o'rnatilmadi")
+    # Ilovadan foydalangan barcha foydalanuvchilarga ham to'g'ri tugma
+    for telegram_id in await db.list_telegram_ids():
+        await ensure_menu(telegram_id)
+        await asyncio.sleep(0.05)
+
+
 async def run_bot():
     if not bot:
         logging.warning("BOT_TOKEN berilmagan - bot ishga tushmaydi, faqat veb-server ishlaydi")
         return
     try:
+        await setup_menu_buttons()
         await dp.start_polling(bot)
     except Exception:
         # Bot yiqilsa ham veb-server (Mini App) ishlashda davom etsin
@@ -602,7 +644,7 @@ async def run_bot():
 
 async def run_web():
     port = int(os.getenv("PORT", 8000))
-    config = uvicorn.Config(app, host="0.0.0.0", port=port, log_level="info")
+    config = uvicorn.Config(app, host=os.getenv("HOST", "0.0.0.0"), port=port, log_level="info")
     server = uvicorn.Server(config)
     await server.serve()
 
