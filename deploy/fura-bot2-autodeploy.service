@@ -1,0 +1,10 @@
+[Unit]
+Description=fura-bot2: GitHub main dan avto-yangilash
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+ExecStart=/opt/fura-bot2/autodeploy.sh
+TimeoutStartSec=15min
+Nice=10
