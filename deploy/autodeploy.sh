@@ -49,7 +49,7 @@ LOG "Yangi versiya: $SHORT — $MSG (hozirgi: ${CUR:0:7})"
 if [ -f "$DATA/fura.db" ]; then
     sqlite3 "$DATA/fura.db" ".timeout 30000" ".backup '$DATA/pre-deploy-$SHORT.db'"
     chown furabot2:furabot2 "$DATA/pre-deploy-$SHORT.db"
-    ls -1t "$DATA"/pre-deploy-*.db 2>/dev/null | tail -n +$((KEEP_RELEASES + 1)) | xargs -r rm -f
+    ls -1t "$DATA"/pre-deploy-*.db 2>/dev/null | tail -n +$((KEEP_RELEASES + 1)) | xargs -r rm -f || true
 fi
 
 # 2) kod
@@ -88,7 +88,7 @@ tail -n +"$((LINES + 1))" "$BOTLOG" | grep -q "Run polling for bot" || ok=0
 if [ "$ok" = 1 ]; then
     LOG "Qo'yildi: $SHORT"
     alert "✅ fura-bot2 yangilandi: $MSG ($SHORT)"
-    ls -1dt "$RELEASES"/*/ | tail -n +$((KEEP_RELEASES + 1)) | grep -v "$(basename "$DIR")" | xargs -r rm -rf
+    ls -1dt "$RELEASES"/*/ | tail -n +$((KEEP_RELEASES + 1)) | { grep -v "$(basename "$DIR")" || true; } | xargs -r rm -rf
 else
     LOG "Tekshiruvdan o'tmadi — oldingi versiyaga qaytarilmoqda"
     ln -sfn "$PREV" "$APP.tmp" && mv -T "$APP.tmp" "$APP"
