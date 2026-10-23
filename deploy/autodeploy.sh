@@ -1,11 +1,11 @@
 #!/usr/bin/env bash
 # fura-bot2 avto-yangilash: GitHub `main` ga yangi commit tushsa serverga o'zi qo'yadi.
-# fura-bot2-autodeploy.timer har 2 daqiqada ishga tushiradi.
+# fura-bot2-autodeploy.timer har 10 daqiqada ishga tushiradi.
 #
 #  1) git fetch (faqat o'qish huquqli deploy key bilan)
 #  2) yangi commit bo'lsa: bazaning nusxasi → kod releases/<sha> ga → paketlar (kerak bo'lsa)
 #     → sintaksis tekshiruvi → app symlink almashadi → restart
-#  3) 25 soniyadan keyin tekshiruv: servis ishlayapti, sahifa 200, bot polling boshladi.
+#  3) 1.5 daqiqadan keyin tekshiruv: servis ishlayapti, sahifa 200, bot polling boshladi.
 #     Bo'lmasa — oldingi versiyaga qaytariladi. Natija Telegram'da adminga yuboriladi.
 set -Eeuo pipefail
 
@@ -75,7 +75,7 @@ LINES=$(wc -l < "$BOTLOG")
 systemctl restart "$SERVICE"
 sleep 3
 PID1=$(systemctl show "$SERVICE" -p MainPID --value)
-sleep 22
+sleep 87
 
 ok=1
 systemctl is-active -q "$SERVICE" || ok=0

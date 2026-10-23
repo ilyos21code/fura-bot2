@@ -1,10 +1,10 @@
 [Unit]
-Description=fura-bot2 avto-yangilash — har 2 daqiqada GitHub'ni tekshirish
+Description=fura-bot2 avto-yangilash — har 10 daqiqada GitHub'ni tekshirish
 
 [Timer]
 OnBootSec=2min
-OnUnitActiveSec=2min
-AccuracySec=15s
+OnUnitActiveSec=10min
+AccuracySec=30s
 
 [Install]
 WantedBy=timers.target
