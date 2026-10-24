@@ -4,9 +4,10 @@ import os
 import re
 import time
 from datetime import datetime
-from typing import Annotated
+from typing import Annotated, Literal
 from zoneinfo import ZoneInfo
 
+import aiohttp
 from aiogram import Bot, Dispatcher, F
 from aiogram.exceptions import TelegramForbiddenError
 from aiogram.filters import CommandStart
@@ -121,7 +122,8 @@ OptionalText = Annotated[str, StringConstraints(strip_whitespace=True, max_lengt
 class TripLegIn(BaseModel):
     from_point: Text
     to_point: Text
-    price: Money
+    price: Money                           # `currency` da kiritilgan summa
+    currency: Literal["UZS", "USD"] = "UZS"
     # Manzildan chiqadigan qimmat yuklarni bot chatiga yuborish (ixtiyoriy)
     alert: bool = False
     next_point: OptionalText = ""
@@ -311,6 +313,7 @@ async def trip_detail(trip):
         "legs": [
             {
                 "id": l[0], "from_point": l[1], "to_point": l[2], "price": l[3], "created_at": l[4],
+                "currency": l[5], "amount": l[6],
                 "alert": (
                     {"id": alerts[l[0]][0], "from_point": alerts[l[0]][1], "next_point": alerts[l[0]][2] or ""}
                     if l[0] in alerts else None
@@ -353,8 +356,14 @@ async def api_add_trip_leg(
     trip = await db.get_trip(user_id, trip_id)
     if not trip:
         raise HTTPException(404, "Reys topilmadi")
+    if payload.currency == "USD":
+        rate = await usd_rate()
+        price_uzs = round(payload.price * rate)
+    else:
+        rate, price_uzs = None, payload.price
     leg_id = await db.add_trip_leg(
-        trip_id, payload.from_point, payload.to_point, payload.price
+        trip_id, payload.from_point, payload.to_point, price_uzs,
+        currency=payload.currency, amount=payload.price, rate=rate,
     )
     if payload.alert:
         if trip[3] != "active":
@@ -401,6 +410,47 @@ async def api_delete_trip_leg(
     return {"ok": True}
 
 
+# ---------------- Dollar kursi ----------------
+CBU_URL = "https://cbu.uz/uz/arkhiv-kursov-valyut/json/"   # Qimmatyuklar ham shu manbadan oladi
+RATE_CACHE_SEC = 6 * 3600
+USD_FALLBACK_RATE = 12600.0
+_rate_cache = {"value": None, "ts": 0.0}
+
+
+async def usd_rate() -> float:
+    """1 USD necha so'm: Markaziy bank (cbu.uz) kursi, 6 soat keshlanadi.
+    Olinmasa — Qimmatyuklar bazasidagi kurs yoki oxirgi ma'lum kurs."""
+    if _rate_cache["value"] and time.time() - _rate_cache["ts"] < RATE_CACHE_SEC:
+        return _rate_cache["value"]
+    rate = None
+    try:
+        async with aiohttp.ClientSession(
+            timeout=aiohttp.ClientTimeout(total=10), headers={"User-Agent": "Mozilla/5.0"}
+        ) as session:
+            async with session.get(CBU_URL) as resp:
+                data = await resp.json(content_type=None)
+        rate = next(float(i["Rate"]) for i in data if i.get("Ccy") == "USD")
+    except Exception as e:
+        logging.warning("CBU kursi olinmadi: %s", e)
+    if not rate:
+        try:
+            rate = await asyncio.to_thread(market.usd_uzs_rate)
+        except Exception:
+            rate = None
+    if rate and rate > 1000:
+        _rate_cache.update(value=rate, ts=time.time())
+        return rate
+    # Hech qayerdan olinmadi — har so'rovda kutib qolmaslik uchun 10 daqiqadan keyin qayta urinamiz
+    _rate_cache.update(value=_rate_cache["value"] or USD_FALLBACK_RATE, ts=time.time() - RATE_CACHE_SEC + 600)
+    return _rate_cache["value"]
+
+
+@app.get("/api/rate")
+async def api_rate(x_telegram_init_data: str = Header(default="")):
+    await get_user_id(x_telegram_init_data)
+    return {"usd_uzs": round(await usd_rate(), 2)}
+
+
 # ---------------- Bozor narxlari (Qimmatyuklar bazasidan) ----------------
 _route_cache: dict = {}
 ROUTE_CACHE_SEC = 300
@@ -428,7 +478,10 @@ async def api_market_route(
         stats = await asyncio.to_thread(market.route_stats, from_point, to_point)
     except Exception:
         logging.exception("Bozor narxi hisoblanmadi")
-        return {"available": False}
+        stats = {"available": False}
+    # Narx qaysi valyutada kiritilishini taklif qilish: O'zbekiston ichi — so'm, xalqaro — dollar
+    hint = market.suggest_currency(from_point, to_point) or stats.get("currency")
+    stats["currency_hint"] = hint if hint in ("UZS", "USD") else None
     if len(_route_cache) > 1000:
         _route_cache.clear()
     _route_cache[key] = (time.time(), stats)

@@ -506,6 +506,17 @@
   .switch-row input { width: 20px; height: 20px; margin: 1px 0 0; accent-color: var(--btn); flex-shrink: 0; }
   .switch-row .title { font-weight: 700; font-size: 14px; }
   .switch-row .hint { color: var(--hint); font-size: 12.5px; margin-top: 3px; line-height: 1.4; }
+
+  /* Safar narxi valyutasi: so'm / $ */
+  .label-row { display: flex; align-items: center; justify-content: space-between; margin-bottom: 6px; }
+  .label-row label { margin-bottom: 0 !important; }
+  .cur-switch { display: flex; background: var(--card); border-radius: 9px; padding: 3px; gap: 3px; }
+  .cur-switch button {
+    border: none; background: transparent; color: var(--hint);
+    font-weight: 700; font-size: 13px; padding: 5px 12px; border-radius: 7px; cursor: pointer;
+  }
+  .cur-switch button.active { background: var(--amber); color: #1a1a1a; }
+  .amount-sub { font-size: 12px; color: var(--hint); text-align: right; font-family: var(--font-mono); }
 </style>
 </head>
 <body>
@@ -669,6 +680,7 @@ const TR = {
   "Manzil": "Манзил",
   "Safar topilmadi": "Сафар топилмади",
   "Reys yakunlangan": "Рейс якунланган",
+  "Narxi": "Нархи",
   "Narxni kiriting": "Нархни киритинг",
   "Safar qo'shildi": "Сафар қўшилди",
 
@@ -777,7 +789,8 @@ const state = {
   selectedLegTripId: null,
   report: null,
   sharing: { max_trucks: 5, incoming: [], watching: [] },
-  marketAvailable: false,  // Qimmatyuklar bazasi ulanganmi (o'rtacha narx va qimmat yuklar)
+  marketAvailable: false,
+  usdRate: 12600,          // 1 USD necha so'm (serverdan — Markaziy bank kursi)  // Qimmatyuklar bazasi ulanganmi (o'rtacha narx va qimmat yuklar)
   newTruck: null,  // qo'shish jarayonidagi mashina: { plateRaw, plate, display, brand }
 };
 
@@ -787,8 +800,6 @@ function escapeHtml(s) {
   }[c]));
 }
 
-// Taxminiy kurs (qo'lda belgilangan, real vaqtda yangilanmaydi)
-const EXCHANGE_RATE_USD = 12000; // 1 USD ~ shuncha so'm
 let currentCurrency = localStorage.getItem("fura_currency") || "UZS";
 
 function setCurrency(cur) {
@@ -800,7 +811,7 @@ function setCurrency(cur) {
 function formatSum(n) {
   const num = Math.round(Number(n) || 0);
   if (currentCurrency === "USD") {
-    const usd = num / EXCHANGE_RATE_USD;
+    const usd = num / state.usdRate;
     const sign = usd < 0 ? "-" : "";
     return sign + "$" + Math.abs(usd).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
   }
@@ -818,6 +829,51 @@ function parseAmount(raw) {
   const n = Number(s);
   return Number.isFinite(n) ? n : NaN;
 }
+
+// Summani valyutasi bilan: 2 500 000 so'm / $2 500 (umumiy UZS/USD tanloviga bog'liq emas)
+function fmtMoney(n, cur) {
+  const num = Number(n) || 0;
+  const digits = cur === "USD" && Math.round(num) !== num ? 2 : 0;
+  const [i, d] = Math.abs(num).toFixed(digits).split(".");
+  const text = i.replace(/\B(?=(\d{3})+(?!\d))/g, " ") + (d ? "," + d : "");
+  const sign = num < 0 ? "-" : "";
+  return cur === "USD" ? `${sign}$${text}` : `${sign}${text} so'm`;
+}
+
+// Summa maydonlari (data-amount): yozish paytida raqamlar 3 tadan ajratiladi —
+// 650 000 bilan 6 500 000 ni adashtirmaslik uchun. "," yoki "." — tiyin/sent.
+function formatAmountInput(el) {
+  const raw = el.value;
+  const caret = el.selectionStart == null ? raw.length : el.selectionStart;
+  const significant = str => str.replace(/[^\d.,]/g, "").length;
+  const before = significant(raw.slice(0, caret));
+  const clean = raw.replace(/[^\d.,]/g, "");
+  const sep = clean.search(/[.,]/);
+  let intPart = sep >= 0 ? clean.slice(0, sep) : clean;
+  const dec = sep >= 0 ? clean.slice(sep + 1).replace(/[.,]/g, "").slice(0, 2) : null;
+  intPart = intPart.replace(/^0+(?=\d)/, "");
+  const out = intPart.replace(/\B(?=(\d{3})+(?!\d))/g, " ") + (dec !== null ? "," + dec : "");
+  if (out === raw) return;
+  el.value = out;
+  let pos = 0, seen = 0;
+  while (pos < out.length && seen < before) {
+    if (out[pos] !== " ") seen++;
+    pos++;
+  }
+  el.setSelectionRange(pos, pos);
+}
+
+// capture — sahifadagi oninput'lardan (masalan bozor narxi bilan solishtirish) oldin ishlaydi
+document.addEventListener("input", e => {
+  if (e.target.matches && e.target.matches("input[data-amount]")) formatAmountInput(e.target);
+}, true);
+// Bo'shliq oldida Backspace bosilsa, bo'shliqni emas, undan oldingi raqamni o'chiramiz
+document.addEventListener("keydown", e => {
+  const el = e.target;
+  if (e.key !== "Backspace" || !el.matches || !el.matches("input[data-amount]")) return;
+  const pos = el.selectionStart;
+  if (pos && pos === el.selectionEnd && el.value[pos - 1] === " ") el.setSelectionRange(pos - 1, pos - 1);
+}, true);
 
 function showToast(msg) {
   const t = document.getElementById("toast");
@@ -893,15 +949,17 @@ function openSheet(html) {
 
 // ---------------- Ma'lumotlarni yuklash ----------------
 async function loadAll() {
-  const [trucks, trips, activeTrips, report, sharing, market] = await Promise.all([
+  const [trucks, trips, activeTrips, report, sharing, market, rate] = await Promise.all([
     api("/api/trucks"),
     api("/api/trips"),
     api("/api/trips/active"),
     api("/api/report"),
     api("/api/sharing"),
     api("/api/market/status").catch(() => ({ available: false })),
+    api("/api/rate").catch(() => null),
   ]);
   state.marketAvailable = !!(market && market.available);
+  if (rate && rate.usd_uzs) state.usdRate = rate.usd_uzs;
   state.trucks = trucks;
   state.trips = trips;
   state.activeTrips = activeTrips;
@@ -1326,7 +1384,7 @@ function openAddTruckExpenseSheet(truckId) {
     </div>
     <div class="field">
       <label>${tr("Summasi (so'm)")}</label>
-      <input type="text" inputmode="decimal" id="truck-exp-amount" placeholder="0">
+      <input type="text" inputmode="decimal" id="truck-exp-amount" placeholder="0" autocomplete="off" data-amount>
     </div>
     <div class="field">
       <label>${tr("Izoh (ixtiyoriy)")}</label>
@@ -1478,7 +1536,7 @@ function tripDetailHtml(trip, readOnly) {
     <div class="card-row">
       <span>${escapeHtml(l.from_point)} → ${escapeHtml(l.to_point)}</span>
       <span class="amount-row">
-        <span>${formatSum(l.price)}</span>
+        <span>${legAmountText(l)}</span>
         ${delBtn("deleteTripLeg", l.id)}
       </span>
     </div>
@@ -1662,7 +1720,7 @@ function openAddExpenseSheet() {
     </div>
     <div class="field">
       <label>${tr("Summasi (so'm)")}</label>
-      <input type="text" inputmode="decimal" id="exp-amount" placeholder="0">
+      <input type="text" inputmode="decimal" id="exp-amount" placeholder="0" autocomplete="off" data-amount>
     </div>
     <div class="field">
       <label>${tr("Izoh (ixtiyoriy)")}</label>
@@ -1719,7 +1777,10 @@ async function renderLegs() {
           <div class="card-sub">${escapeHtml(l.created_at)}</div>
         </div>
         <div class="amount-row">
-          <div class="card-amount">${formatSum(l.price)}</div>
+          <div>
+            <div class="card-amount">${legAmountText(l)}</div>
+            ${l.currency === "USD" ? `<div class="amount-sub">≈ ${fmtMoney(l.price, "UZS")}</div>` : ""}
+          </div>
           <button class="mini-delete" onclick="deleteLegFromList(${tripId}, ${l.id})">✕</button>
         </div>
       </div>
@@ -1754,6 +1815,15 @@ async function fetchRouteStats(from, to) {
   return marketCache[key];
 }
 
+// Dollarda kiritilgan safar — dollarda, so'mdagisi — umumiy UZS/USD tanlovi bo'yicha
+function legAmountText(l) {
+  return l.currency === "USD" ? fmtMoney(l.amount, "USD") : formatSum(l.price);
+}
+
+function avgIn(stats, cur) {
+  return Math.round(cur === "USD" ? stats.avg_usd : stats.avg_uzs);
+}
+
 function hasAverage(stats) {
   return stats && stats.available && stats.avg_uzs;
 }
@@ -1770,48 +1840,81 @@ async function fillLegMarket(leg) {
   const el = document.getElementById(`leg-market-${leg.id}`);
   if (!el) return;
   if (!hasAverage(stats)) { el.remove(); return; }
-  el.innerHTML = `📊 ${tr("Bozorda o'rtacha")}: <b>${formatSum(stats.avg_uzs)}</b>
+  const avgText = leg.currency === "USD" ? fmtMoney(avgIn(stats, "USD"), "USD") : formatSum(stats.avg_uzs);
+  el.innerHTML = `📊 ${tr("Bozorda o'rtacha")}: <b>${avgText}</b>
     (${stats.count} ${tr("ta yuk")}, ${stats.days} ${tr("kun")}) · ${compareText(leg.price, stats.avg_uzs)}`;
 }
 
 let legMarketTimer = null;
 let legMarketSeq = 0;
 
+// Safar qo'shish oynasi: valyuta (so'm / $) va bozor narxi
+let legCurrency = "UZS";
+let legCurrencyManual = false;   // foydalanuvchi o'zi tanlagan bo'lsa, yo'nalish bo'yicha almashtirmaymiz
+let legStats = null;
+
 function onLegRouteInput() {
   clearTimeout(legMarketTimer);
-  legMarketTimer = setTimeout(updateLegMarket, 450);
+  legMarketTimer = setTimeout(updateLegRoute, 450);
   updateAlertHint();
 }
 
-async function updateLegMarket() {
+function setLegCurrency(cur, manual) {
+  if (manual) legCurrencyManual = true;
+  legCurrency = cur;
+  document.querySelectorAll("#leg-cur button").forEach(b => b.classList.toggle("active", b.dataset.cur === cur));
+  renderLegMarket();
+  updateLegCompare();
+}
+
+async function updateLegRoute() {
   const box = document.getElementById("leg-market");
-  if (!box) return;
   const from = document.getElementById("leg-from").value.trim();
   const to = document.getElementById("leg-to").value.trim();
-  if (!from || !to) { box.hidden = true; return; }
+  legStats = null;
+  if (!from || !to) { if (box) box.hidden = true; return; }
   const seq = ++legMarketSeq;
-  box.hidden = false;
-  box.innerHTML = `<span class="muted">${tr("Bozor narxi qidirilmoqda...")}</span>`;
+  if (box) {
+    box.hidden = false;
+    box.innerHTML = `<span class="muted">${tr("Bozor narxi qidirilmoqda...")}</span>`;
+  }
   const stats = await fetchRouteStats(from, to);
-  if (seq !== legMarketSeq || !document.getElementById("leg-market")) return;
+  if (seq !== legMarketSeq || !document.getElementById("leg-price")) return;
+  legStats = stats;
+  // O'zbekiston ichi — so'm, xalqaro — dollar (qo'lda tanlanmagan bo'lsa)
+  if (!legCurrencyManual && stats.currency_hint && stats.currency_hint !== legCurrency) {
+    setLegCurrency(stats.currency_hint, false);
+  } else {
+    renderLegMarket();
+    updateLegCompare();
+  }
+}
+
+function renderLegMarket() {
+  const box = document.getElementById("leg-market");
+  if (!box || !legStats) return;
+  const stats = legStats;
   if (!stats.available) { box.hidden = true; return; }
   if (!hasAverage(stats)) {
     box.innerHTML = `<span class="muted">📊 ${tr("Bu yo'nalishda oxirgi kunlarda yetarli yuk topilmadi")}</span>`;
     return;
   }
-  box.dataset.avg = stats.avg_uzs;
-  box.innerHTML = `📊 ${tr("Bozorda o'rtacha")}: <b>${formatSum(stats.avg_uzs)}</b><br>
+  box.innerHTML = `📊 ${tr("Bozorda o'rtacha")}: <b>${fmtMoney(avgIn(stats, legCurrency), legCurrency)}</b><br>
     <span class="muted">${escapeHtml(stats.from)} → ${escapeHtml(stats.to)} · ${tr("oxirgi")} ${stats.days} ${tr("kun")}, ${stats.count} ${tr("ta yuk")}</span>
     <div id="leg-compare"></div>`;
-  updateLegCompare();
 }
 
 function updateLegCompare() {
-  const box = document.getElementById("leg-market");
-  const el = document.getElementById("leg-compare");
-  if (!box || !el) return;
   const price = parseAmount(document.getElementById("leg-price").value);
-  el.innerHTML = price > 0 ? compareText(price, Number(box.dataset.avg)) : "";
+  const sub = document.getElementById("leg-price-sub");
+  if (sub) {
+    sub.textContent = legCurrency === "USD" && price > 0
+      ? `≈ ${fmtMoney(price * state.usdRate, "UZS")} (1$ = ${fmtMoney(state.usdRate, "UZS")})`
+      : "";
+  }
+  const el = document.getElementById("leg-compare");
+  if (!el || !hasAverage(legStats)) return;
+  el.innerHTML = price > 0 ? compareText(price, avgIn(legStats, legCurrency)) : "";
 }
 
 // ---------------- Qimmat yuklarni bot chatiga yuborish ----------------
@@ -1931,6 +2034,9 @@ function openAddLegSheet() {
       <div class="sheet-actions"><button class="btn-primary" onclick="closeSheet()">${tr("Tushunarli")}</button></div>
     `);
   }
+  legCurrency = "UZS";
+  legCurrencyManual = false;
+  legStats = null;
   openSheet(`
     <h2>${tr("Safar qo'shish")}</h2>
     <div class="field">
@@ -1943,8 +2049,15 @@ function openAddLegSheet() {
     </div>
     ${state.marketAvailable ? `<div class="market-box" id="leg-market" hidden></div>` : ""}
     <div class="field">
-      <label>${tr("Narxi (so'm)")}</label>
-      <input type="text" inputmode="decimal" id="leg-price" placeholder="0" oninput="updateLegCompare()">
+      <div class="label-row">
+        <label for="leg-price">${tr("Narxi")}</label>
+        <div class="cur-switch" id="leg-cur">
+          <button type="button" data-cur="UZS" class="active" onclick="setLegCurrency('UZS', true)">so'm</button>
+          <button type="button" data-cur="USD" onclick="setLegCurrency('USD', true)">$</button>
+        </div>
+      </div>
+      <input type="text" inputmode="decimal" id="leg-price" placeholder="0" autocomplete="off" data-amount oninput="updateLegCompare()">
+      <div class="card-sub" id="leg-price-sub" style="margin-top:6px;"></div>
     </div>
     ${state.marketAvailable ? alertFieldsHtml("", activeTripVolume(state.selectedLegTripId || state.activeTrips[0].id)) : ""}
     <div class="sheet-actions">
@@ -1966,7 +2079,7 @@ async function submitAddLeg() {
   const next_point = alert ? document.getElementById("leg-next").value.trim() : "";
   try {
     await api(`/api/trips/${tripId}/legs`, {
-      method: "POST", body: JSON.stringify({ from_point, to_point, price, alert, next_point })
+      method: "POST", body: JSON.stringify({ from_point, to_point, price, currency: legCurrency, alert, next_point })
     });
     closeSheet();
     await loadAll();

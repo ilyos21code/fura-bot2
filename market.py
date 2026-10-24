@@ -50,10 +50,18 @@ def _load_geo():
         if info.get("cyrillic"):
             aliases.setdefault(re.sub(r"[^\w']", "", info["cyrillic"].lower()), name)
     cyrillic = {name: info["cyrillic"] for name, info in cities.items() if info.get("cyrillic")}
-    return aliases, cyrillic
+    return aliases, cyrillic, set(cities)
 
 
-CITY_ALIASES, CITY_CYRILLIC = _load_geo()
+CITY_ALIASES, CITY_CYRILLIC, KNOWN_CITIES = _load_geo()
+
+# O'zbekiston shaharlari (geo_data.json dagilardan) — yo'nalish ichki yoki xalqaro ekanini bilish uchun
+UZ_CITIES = {
+    "Toshkent", "Samarqand", "Buxoro", "Andijon", "Farg'ona", "Namangan", "Qo'qon", "Marg'ilon",
+    "Jizzax", "Guliston", "Navoiy", "Qarshi", "Shahrisabz", "Termiz", "Denov", "Urganch", "Xiva",
+    "Nukus", "Angren", "Chirchiq", "Olmaliq", "Turtkul", "Qo'ng'irot", "Qorako'l", "Narpay",
+    "Zarafshon", "Kattaqo'rg'on", "Olot", "Bekobod",
+}
 _ALIAS_KEYS = sorted(CITY_ALIASES, key=len, reverse=True)
 
 # yuk_top.py dagi COUNTRY_ALIASES nusxasi + o'zbekcha kirill shakllari
@@ -121,6 +129,44 @@ def resolve_place(text):
         if len(alias) >= 5 and alias in country_key:
             return ("country", COUNTRY_ALIASES[alias])
     return ("city", _title(text))
+
+
+def suggest_currency(from_text, to_text):
+    """Yo'nalish O'zbekiston ichida bo'lsa "UZS", chetga/chetdan bo'lsa "USD".
+    Shaharlardan biri notanish bo'lsa None (foydalanuvchi tanlovi o'zgarmaydi)."""
+    places = [resolve_place(from_text), resolve_place(to_text)]
+    if not all(places):
+        return None
+    domestic = []
+    for kind, name in places:
+        if kind == "country":
+            domestic.append(name == "O'zbekiston")
+        elif name in UZ_CITIES:
+            domestic.append(True)
+        elif name in KNOWN_CITIES:
+            domestic.append(False)
+        else:
+            domestic.append(None)
+    if False in domestic:
+        return "USD"
+    if all(domestic):
+        return "UZS"
+    return None
+
+
+def usd_uzs_rate():
+    """Qimmatyuklar bazasidagi so'm kursi (bo'lmasa None)."""
+    con = _connect()
+    if not con:
+        return None
+    try:
+        row = con.execute(
+            "SELECT price / price_usd FROM loads WHERE currency='UZS' AND price_usd > 0 "
+            "ORDER BY ts DESC LIMIT 1"
+        ).fetchone()
+        return row[0] if row and row[0] else None
+    finally:
+        con.close()
 
 
 def place_label(place) -> str:

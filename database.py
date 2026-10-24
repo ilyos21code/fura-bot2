@@ -104,6 +104,11 @@ MIGRATIONS = [
     ("trucks", "plate", "TEXT"),
     ("trucks", "brand", "TEXT"),
     ("trucks", "volume", "REAL"),
+    # Safar narxi qaysi valyutada kiritilgan: price — doim so'mda (hisobotlar shu bilan),
+    # amount — kiritilgan summa (currency da), rate — o'sha kundagi 1 USD kursi
+    ("trip_legs", "currency", "TEXT"),
+    ("trip_legs", "amount", "REAL"),
+    ("trip_legs", "rate", "REAL"),
 ]
 
 
@@ -392,11 +397,14 @@ async def list_trip_expenses(trip_id: int):
         return await cur.fetchall()
 
 
-async def add_trip_leg(trip_id: int, from_point: str, to_point: str, price: float):
+async def add_trip_leg(trip_id: int, from_point: str, to_point: str, price: float,
+                       currency: str = "UZS", amount: float = None, rate: float = None):
+    """price — so'mda; amount — `currency` da kiritilgan summa."""
     async with aiosqlite.connect(DB_PATH) as conn:
         cur = await conn.execute(
-            "INSERT INTO trip_legs (trip_id, from_point, to_point, price) VALUES (?, ?, ?, ?)",
-            (trip_id, from_point, to_point, price),
+            """INSERT INTO trip_legs (trip_id, from_point, to_point, price, currency, amount, rate)
+               VALUES (?, ?, ?, ?, ?, ?, ?)""",
+            (trip_id, from_point, to_point, price, currency, amount if amount is not None else price, rate),
         )
         await conn.commit()
         return cur.lastrowid
@@ -414,7 +422,9 @@ async def get_trip_leg(trip_id: int, leg_id: int):
 async def list_trip_legs(trip_id: int):
     async with aiosqlite.connect(DB_PATH) as conn:
         cur = await conn.execute(
-            "SELECT id, from_point, to_point, price, created_at FROM trip_legs WHERE trip_id=? ORDER BY created_at DESC",
+            """SELECT id, from_point, to_point, price, created_at,
+                      COALESCE(currency, 'UZS'), COALESCE(amount, price)
+               FROM trip_legs WHERE trip_id=? ORDER BY created_at DESC""",
             (trip_id,),
         )
         return await cur.fetchall()
