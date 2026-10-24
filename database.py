@@ -109,6 +109,13 @@ MIGRATIONS = [
     ("trip_legs", "currency", "TEXT"),
     ("trip_legs", "amount", "REAL"),
     ("trip_legs", "rate", "REAL"),
+    # Xarajatlar ham: amount — doim so'mda, orig_amount — `currency` da kiritilgan summa
+    ("trip_expenses", "currency", "TEXT"),
+    ("trip_expenses", "orig_amount", "REAL"),
+    ("trip_expenses", "rate", "REAL"),
+    ("truck_expenses", "currency", "TEXT"),
+    ("truck_expenses", "orig_amount", "REAL"),
+    ("truck_expenses", "rate", "REAL"),
 ]
 
 
@@ -243,11 +250,15 @@ async def delete_truck(user_id: int, truck_id: int):
         await conn.commit()
 
 
-async def add_truck_expense(truck_id: int, category: str, amount: float, note: str = ""):
+async def add_truck_expense(truck_id: int, category: str, amount: float, note: str = "",
+                            currency: str = "UZS", orig_amount: float = None, rate: float = None):
+    """amount — so'mda; orig_amount — `currency` da kiritilgan summa."""
     async with aiosqlite.connect(DB_PATH) as conn:
         cur = await conn.execute(
-            "INSERT INTO truck_expenses (truck_id, category, amount, note) VALUES (?, ?, ?, ?)",
-            (truck_id, category, amount, note),
+            """INSERT INTO truck_expenses (truck_id, category, amount, note, currency, orig_amount, rate)
+               VALUES (?, ?, ?, ?, ?, ?, ?)""",
+            (truck_id, category, amount, note, currency,
+             orig_amount if orig_amount is not None else amount, rate),
         )
         await conn.commit()
         return cur.lastrowid
@@ -256,7 +267,9 @@ async def add_truck_expense(truck_id: int, category: str, amount: float, note: s
 async def list_truck_expenses(truck_id: int):
     async with aiosqlite.connect(DB_PATH) as conn:
         cur = await conn.execute(
-            "SELECT id, category, amount, note, created_at FROM truck_expenses WHERE truck_id=? ORDER BY created_at DESC",
+            """SELECT id, category, amount, note, created_at,
+                      COALESCE(currency, 'UZS'), COALESCE(orig_amount, amount)
+               FROM truck_expenses WHERE truck_id=? ORDER BY created_at DESC""",
             (truck_id,),
         )
         return await cur.fetchall()
@@ -378,11 +391,15 @@ async def get_trip(user_id: int, trip_id: int):
         return await cur.fetchone()
 
 
-async def add_trip_expense(trip_id: int, category: str, amount: float, note: str = ""):
+async def add_trip_expense(trip_id: int, category: str, amount: float, note: str = "",
+                           currency: str = "UZS", orig_amount: float = None, rate: float = None):
+    """amount — so'mda; orig_amount — `currency` da kiritilgan summa."""
     async with aiosqlite.connect(DB_PATH) as conn:
         cur = await conn.execute(
-            "INSERT INTO trip_expenses (trip_id, category, amount, note) VALUES (?, ?, ?, ?)",
-            (trip_id, category, amount, note),
+            """INSERT INTO trip_expenses (trip_id, category, amount, note, currency, orig_amount, rate)
+               VALUES (?, ?, ?, ?, ?, ?, ?)""",
+            (trip_id, category, amount, note, currency,
+             orig_amount if orig_amount is not None else amount, rate),
         )
         await conn.commit()
         return cur.lastrowid
@@ -391,7 +408,9 @@ async def add_trip_expense(trip_id: int, category: str, amount: float, note: str
 async def list_trip_expenses(trip_id: int):
     async with aiosqlite.connect(DB_PATH) as conn:
         cur = await conn.execute(
-            "SELECT id, category, amount, note, created_at FROM trip_expenses WHERE trip_id=? ORDER BY created_at DESC",
+            """SELECT id, category, amount, note, created_at,
+                      COALESCE(currency, 'UZS'), COALESCE(orig_amount, amount)
+               FROM trip_expenses WHERE trip_id=? ORDER BY created_at DESC""",
             (trip_id,),
         )
         return await cur.fetchall()

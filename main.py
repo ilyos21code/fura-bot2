@@ -100,10 +100,14 @@ class WatchIn(BaseModel):
     plate: Annotated[str, StringConstraints(strip_whitespace=True, min_length=1, max_length=20)]
 
 
+Currency = Literal["UZS", "USD"]
+
+
 class TruckExpenseIn(BaseModel):
     category: Text
-    amount: Money
+    amount: Money                # `currency` da kiritilgan summa
     note: Note = ""
+    currency: Currency = "UZS"
 
 
 class TripIn(BaseModel):
@@ -112,8 +116,9 @@ class TripIn(BaseModel):
 
 class TripExpenseIn(BaseModel):
     category: Text
-    amount: Money
+    amount: Money                # `currency` da kiritilgan summa
     note: Note = ""
+    currency: Currency = "UZS"
 
 
 OptionalText = Annotated[str, StringConstraints(strip_whitespace=True, max_length=200)]
@@ -123,7 +128,7 @@ class TripLegIn(BaseModel):
     from_point: Text
     to_point: Text
     price: Money                           # `currency` da kiritilgan summa
-    currency: Literal["UZS", "USD"] = "UZS"
+    currency: Currency = "UZS"
     # Manzildan chiqadigan qimmat yuklarni bot chatiga yuborish (ixtiyoriy)
     alert: bool = False
     next_point: OptionalText = ""
@@ -131,6 +136,22 @@ class TripLegIn(BaseModel):
 
 class LegAlertIn(BaseModel):
     next_point: OptionalText = ""
+
+
+def expense_to_dict(r):
+    """amount — so'mda (jamlar shu bilan), orig_amount — `currency` da kiritilgani."""
+    return {
+        "id": r[0], "category": r[1], "amount": r[2], "note": r[3], "created_at": r[4],
+        "currency": r[5], "orig_amount": r[6],
+    }
+
+
+async def to_uzs(amount: float, currency: str):
+    """(so'mdagi summa, ishlatilgan kurs yoki None)."""
+    if currency == "USD":
+        rate = await usd_rate()
+        return round(amount * rate), rate
+    return amount, None
 
 
 # ---------------- Trucks ----------------
@@ -195,7 +216,7 @@ async def api_list_truck_expenses(truck_id: int, x_telegram_init_data: str = Hea
         raise HTTPException(404, "Fura topilmadi")
     rows = await db.list_truck_expenses(truck_id)
     return [
-        {"id": r[0], "category": r[1], "amount": r[2], "note": r[3], "created_at": r[4]}
+        expense_to_dict(r)
         for r in rows
     ]
 
@@ -208,7 +229,11 @@ async def api_add_truck_expense(
     truck = await db.get_truck(user_id, truck_id)
     if not truck:
         raise HTTPException(404, "Fura topilmadi")
-    expense_id = await db.add_truck_expense(truck_id, payload.category, payload.amount, payload.note)
+    amount_uzs, rate = await to_uzs(payload.amount, payload.currency)
+    expense_id = await db.add_truck_expense(
+        truck_id, payload.category, amount_uzs, payload.note,
+        currency=payload.currency, orig_amount=payload.amount, rate=rate,
+    )
     return {"id": expense_id}
 
 
@@ -307,7 +332,7 @@ async def trip_detail(trip):
         "expense": expense,
         "profit": income - expense,
         "expenses": [
-            {"id": e[0], "category": e[1], "amount": e[2], "note": e[3], "created_at": e[4]}
+            expense_to_dict(e)
             for e in expenses
         ],
         "legs": [
@@ -332,7 +357,11 @@ async def api_add_trip_expense(
     trip = await db.get_trip(user_id, trip_id)
     if not trip:
         raise HTTPException(404, "Reys topilmadi")
-    expense_id = await db.add_trip_expense(trip_id, payload.category, payload.amount, payload.note)
+    amount_uzs, rate = await to_uzs(payload.amount, payload.currency)
+    expense_id = await db.add_trip_expense(
+        trip_id, payload.category, amount_uzs, payload.note,
+        currency=payload.currency, orig_amount=payload.amount, rate=rate,
+    )
     return {"id": expense_id}
 
 
@@ -356,11 +385,7 @@ async def api_add_trip_leg(
     trip = await db.get_trip(user_id, trip_id)
     if not trip:
         raise HTTPException(404, "Reys topilmadi")
-    if payload.currency == "USD":
-        rate = await usd_rate()
-        price_uzs = round(payload.price * rate)
-    else:
-        rate, price_uzs = None, payload.price
+    price_uzs, rate = await to_uzs(payload.price, payload.currency)
     leg_id = await db.add_trip_leg(
         trip_id, payload.from_point, payload.to_point, price_uzs,
         currency=payload.currency, amount=payload.price, rate=rate,
@@ -651,7 +676,7 @@ async def api_watched_truck(truck_id: int, x_telegram_init_data: str = Header(de
         "repair_total": repair_total,
         "profit": income - trip_expense - repair_total,
         "repairs": [
-            {"id": r[0], "category": r[1], "amount": r[2], "note": r[3], "created_at": r[4]}
+            expense_to_dict(r)
             for r in repairs
         ],
         "trips": trips,

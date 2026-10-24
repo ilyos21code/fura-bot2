@@ -516,7 +516,7 @@
     font-weight: 700; font-size: 13px; padding: 5px 12px; border-radius: 7px; cursor: pointer;
   }
   .cur-switch button.active { background: var(--amber); color: #1a1a1a; }
-  .amount-sub { font-size: 12px; color: var(--hint); text-align: right; font-family: var(--font-mono); }
+  .amount-sub { font-size: 12px; color: var(--hint); text-align: right; font-family: var(--font-mono); white-space: nowrap; }
 </style>
 </head>
 <body>
@@ -681,6 +681,7 @@ const TR = {
   "Safar topilmadi": "Сафар топилмади",
   "Reys yakunlangan": "Рейс якунланган",
   "Narxi": "Нархи",
+  "Summasi": "Суммаси",
   "Narxni kiriting": "Нархни киритинг",
   "Safar qo'shildi": "Сафар қўшилди",
 
@@ -1272,7 +1273,7 @@ async function openWatchedTruck(truckId) {
   const repairsHtml = w.repairs.length ? w.repairs.map(e => `
     <div class="card-row">
       <span>${escapeHtml(tr(e.category))}${e.note ? " · " + escapeHtml(e.note) : ""}<br><small>${escapeHtml(e.created_at)}</small></span>
-      <span>${formatSum(e.amount)}</span>
+      <span>${expAmountText(e)}</span>
     </div>
   `).join("") : `<div class="card-sub">${tr("Xarajat yo'q")}</div>`;
 
@@ -1340,7 +1341,10 @@ async function openTruckDetail(truckId) {
           <div class="card-sub">${escapeHtml(e.created_at)}${e.note ? " · " + escapeHtml(e.note) : ""}</div>
         </div>
         <div class="amount-row">
-          <div class="card-amount">${formatSum(e.amount)}</div>
+          <div>
+            <div class="card-amount">${expAmountText(e)}</div>
+            ${expAmountSub(e)}
+          </div>
           <button class="mini-delete" onclick="deleteTruckExpense(${truckId}, ${e.id})">✕</button>
         </div>
       </div>
@@ -1382,10 +1386,7 @@ function openAddTruckExpenseSheet(truckId) {
         <option value="Boshqa">${tr("Boshqa")}</option>
       </select>
     </div>
-    <div class="field">
-      <label>${tr("Summasi (so'm)")}</label>
-      <input type="text" inputmode="decimal" id="truck-exp-amount" placeholder="0" autocomplete="off" data-amount>
-    </div>
+    ${amountFieldHtml("truck-exp")}
     <div class="field">
       <label>${tr("Izoh (ixtiyoriy)")}</label>
       <input type="text" id="truck-exp-note" placeholder="">
@@ -1404,7 +1405,7 @@ async function submitAddTruckExpense(truckId) {
   if (!amount || amount <= 0) return showToast(tr("Summani kiriting"));
   try {
     await api(`/api/trucks/${truckId}/expenses`, {
-      method: "POST", body: JSON.stringify({ category, amount, note })
+      method: "POST", body: JSON.stringify({ category, amount, note, currency: formCurrency("truck-exp") })
     });
     await loadAll();
     renderTrucks();
@@ -1546,7 +1547,7 @@ function tripDetailHtml(trip, readOnly) {
     <div class="card-row">
       <span>${escapeHtml(tr(e.category))}${e.note ? " · " + escapeHtml(e.note) : ""}</span>
       <span class="amount-row">
-        <span>${formatSum(e.amount)}</span>
+        <span>${expAmountText(e)}</span>
         ${delBtn("deleteTripExpense", e.id)}
       </span>
     </div>
@@ -1671,7 +1672,10 @@ async function renderExpenses() {
           <div class="card-sub">${escapeHtml(e.created_at)}${e.note ? " · " + escapeHtml(e.note) : ""}</div>
         </div>
         <div class="amount-row">
-          <div class="card-amount">${formatSum(e.amount)}</div>
+          <div>
+            <div class="card-amount">${expAmountText(e)}</div>
+            ${expAmountSub(e)}
+          </div>
           <button class="mini-delete" onclick="deleteExpenseFromList(${tripId}, ${e.id})">✕</button>
         </div>
       </div>
@@ -1718,10 +1722,7 @@ function openAddExpenseSheet() {
         <option value="Boshqa">${tr("Boshqa")}</option>
       </select>
     </div>
-    <div class="field">
-      <label>${tr("Summasi (so'm)")}</label>
-      <input type="text" inputmode="decimal" id="exp-amount" placeholder="0" autocomplete="off" data-amount>
-    </div>
+    ${amountFieldHtml("exp")}
     <div class="field">
       <label>${tr("Izoh (ixtiyoriy)")}</label>
       <input type="text" id="exp-note" placeholder="">
@@ -1741,7 +1742,7 @@ async function submitAddExpense() {
   const tripId = state.selectedExpenseTripId || state.activeTrips[0].id;
   try {
     await api(`/api/trips/${tripId}/expenses`, {
-      method: "POST", body: JSON.stringify({ category, amount, note })
+      method: "POST", body: JSON.stringify({ category, amount, note, currency: formCurrency("exp") })
     });
     closeSheet();
     await loadAll();
@@ -1818,6 +1819,55 @@ async function fetchRouteStats(from, to) {
 // Dollarda kiritilgan safar — dollarda, so'mdagisi — umumiy UZS/USD tanlovi bo'yicha
 function legAmountText(l) {
   return l.currency === "USD" ? fmtMoney(l.amount, "USD") : formatSum(l.price);
+}
+
+// Xarajat: dollarda kiritilgani dollarda, so'mdagisi — umumiy UZS/USD tanlovi bo'yicha
+function expAmountText(e) {
+  return e.currency === "USD" ? fmtMoney(e.orig_amount, "USD") : formatSum(e.amount);
+}
+
+function expAmountSub(e) {
+  return e.currency === "USD" ? `<div class="amount-sub">≈ ${fmtMoney(e.amount, "UZS")}</div>` : "";
+}
+
+// Xarajat oynasidagi summa maydoni: so'm / $ tanlovi bilan. Oxirgi tanlangan valyuta eslab qolinadi
+// (chet eldagi reysda ketma-ket bir nechta xarajat dollarda yoziladi)
+function amountFieldHtml(prefix) {
+  let cur = "UZS";
+  try { cur = localStorage.getItem(`fura_cur_${prefix}`) || "UZS"; } catch (e) {}
+  return `
+    <div class="field">
+      <div class="label-row">
+        <label for="${prefix}-amount">${tr("Summasi")}</label>
+        <div class="cur-switch" id="${prefix}-cur" data-cur="${cur}">
+          <button type="button" data-cur="UZS" class="${cur === "UZS" ? "active" : ""}" onclick="pickCurrency('${prefix}', 'UZS')">so'm</button>
+          <button type="button" data-cur="USD" class="${cur === "USD" ? "active" : ""}" onclick="pickCurrency('${prefix}', 'USD')">$</button>
+        </div>
+      </div>
+      <input type="text" inputmode="decimal" id="${prefix}-amount" placeholder="0" autocomplete="off" data-amount oninput="updateAmountSub('${prefix}')">
+      <div class="card-sub" id="${prefix}-amount-sub" style="margin-top:6px;"></div>
+    </div>`;
+}
+
+function pickCurrency(prefix, cur) {
+  const sw = document.getElementById(`${prefix}-cur`);
+  sw.dataset.cur = cur;
+  sw.querySelectorAll("button").forEach(b => b.classList.toggle("active", b.dataset.cur === cur));
+  try { localStorage.setItem(`fura_cur_${prefix}`, cur); } catch (e) {}
+  updateAmountSub(prefix);
+}
+
+function formCurrency(prefix) {
+  return document.getElementById(`${prefix}-cur`).dataset.cur || "UZS";
+}
+
+function updateAmountSub(prefix) {
+  const sub = document.getElementById(`${prefix}-amount-sub`);
+  if (!sub) return;
+  const amount = parseAmount(document.getElementById(`${prefix}-amount`).value);
+  sub.textContent = formCurrency(prefix) === "USD" && amount > 0
+    ? `≈ ${fmtMoney(amount * state.usdRate, "UZS")} (1$ = ${fmtMoney(state.usdRate, "UZS")})`
+    : "";
 }
 
 function avgIn(stats, cur) {
