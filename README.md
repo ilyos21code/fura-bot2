@@ -69,6 +69,17 @@ qadam-baqadam sozlaymiz — hoziroq bezovta bo'lishingiz shart emas.
 ### 📍 Safarlar
 - Joriy reys davomida bir nechta yuk yo'nalishini qo'shish (qayerdan — qayerga — necha pulga)
 - Jami daromad yuqorida katta raqam bilan ko'rinadi
+- Safar qo'shishda yo'nalish yozilishi bilan pastda **bozordagi o'rtacha narx** chiqadi
+  (masalan Andijon → Toshkent: oxirgi 7 kunda e'lon qilingan yuklar o'rtachasi) va
+  kiritilgan narx o'rtachadan necha foiz yuqori/pastligi ko'rsatiladi
+- **"Qimmat yuklarni botga yuborish"** belgilansa, manzildan (masalan Toshkentdan)
+  chiqadigan, narxi o'z yo'nalishi o'rtachasiga teng yoki undan yuqori yangi yuklar
+  bot chatiga yuborib turiladi. Ixtiyoriy "Keyingi yo'nalish" maydoniga shahar
+  (Moskva) yoki davlat (Rossiya) yozilsa, faqat o'sha tomonga ketadigan yuklar keladi
+- Yuklar mashina hajmiga (kub) qarab tanlanadi: e'londa ko'rsatilgan hajm mashinaga
+  sig'masa yuborilmaydi
+- Bitta reysda bir vaqtda bitta safar uchun yuboriladi (oxirgi yoqilgani); reys
+  yakunlanganda yoki botdagi "To'xtatish" tugmasi bosilganda to'xtaydi
 
 ### 📊 Hisobot
 - Umumiy sof foyda/zarar
@@ -86,6 +97,27 @@ tashqari, bepul server 15 daqiqa so'rov kelmasa uxlab qoladi va bot `/start`ga
 javob bermay qo'yadi. Ma'lumot saqlanib qolishi uchun doimiy disk (Render'da
 "Persistent Disk", masalan `/var/data`) ulab, `DB_PATH=/var/data/fura.db` qilib
 qo'ying.
+
+## Bozor narxlari: Qimmatyuklar bazasi
+
+O'rtacha narx va qimmat yuklar [Qimmatyuklar](https://github.com/ilyos21code/qimmatyuklar)
+(`yuk_top.py`) Telegram yuk kanallaridan yig'adigan `yuk.db` bazasidan olinadi. Fura
+bot bu faylni **faqat o'qiydi** (SQLite `mode=ro`), unga hech narsa yozmaydi. Ikkala
+bot bitta serverda ishlaydi; ulash uchun serverda bir marta:
+
+```
+sudo /opt/fura-bot2/app/deploy/connect-yuk-db.sh            # yuk.db ni o'zi topadi
+sudo /opt/fura-bot2/app/deploy/connect-yuk-db.sh /yo'l/yuk.db
+```
+
+Skript `furabot2` foydalanuvchisiga faqat shu faylni o'qish huquqini beradi,
+`YUK_DB_PATH` ni systemd sozlamasiga yozadi va botni qayta ishga tushiradi.
+`YUK_DB_PATH` berilmasa yoki fayl o'qilmasa, bu funksiyalar ilovada shunchaki
+ko'rinmaydi — qolgan hamma narsa odatdagidek ishlaydi.
+
+Shahar nomlari (`Ташкент`, `tashkent`, `Toshkentga` → Toshkent) Qimmatyuklar bilan
+bir xil qoidada tanilishi uchun `geo_data.json` o'sha loyihadan olingan nusxa.
+U yerda yangi shahar qo'shilsa, bu faylni ham yangilab qo'yish kerak.
 
 ## Lokal sinov (ixtiyoriy, dasturchilar uchun)
 

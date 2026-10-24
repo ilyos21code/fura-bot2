@@ -1,0 +1,764 @@
+{
+  "cities": {
+    "Toshkent": {
+      "lat": 41.31,
+      "lon": 69.24,
+      "cyrillic": "Тошкент"
+    },
+    "Samarqand": {
+      "lat": 39.65,
+      "lon": 66.96,
+      "cyrillic": "Самарқанд"
+    },
+    "Buxoro": {
+      "lat": 39.77,
+      "lon": 64.42,
+      "cyrillic": "Бухоро"
+    },
+    "Andijon": {
+      "lat": 40.78,
+      "lon": 72.34,
+      "cyrillic": "Андижон"
+    },
+    "Farg'ona": {
+      "lat": 40.39,
+      "lon": 71.78,
+      "cyrillic": "Фарғона"
+    },
+    "Namangan": {
+      "lat": 41.0,
+      "lon": 71.67,
+      "cyrillic": "Наманган"
+    },
+    "Qo'qon": {
+      "lat": 40.53,
+      "lon": 70.94,
+      "cyrillic": "Қўқон"
+    },
+    "Marg'ilon": {
+      "lat": 40.47,
+      "lon": 71.72,
+      "cyrillic": "Марғилон"
+    },
+    "Jizzax": {
+      "lat": 40.12,
+      "lon": 67.84,
+      "cyrillic": "Жиззах"
+    },
+    "Guliston": {
+      "lat": 40.49,
+      "lon": 68.78,
+      "cyrillic": "Гулистон"
+    },
+    "Navoiy": {
+      "lat": 40.1,
+      "lon": 65.37,
+      "cyrillic": "Навоий"
+    },
+    "Qarshi": {
+      "lat": 38.86,
+      "lon": 65.79,
+      "cyrillic": "Қарши"
+    },
+    "Shahrisabz": {
+      "lat": 39.05,
+      "lon": 66.83,
+      "cyrillic": "Шаҳрисабз"
+    },
+    "Termiz": {
+      "lat": 37.22,
+      "lon": 67.28,
+      "cyrillic": "Термиз"
+    },
+    "Denov": {
+      "lat": 38.27,
+      "lon": 67.9,
+      "cyrillic": "Денов"
+    },
+    "Urganch": {
+      "lat": 41.55,
+      "lon": 60.63,
+      "cyrillic": "Урганч"
+    },
+    "Xiva": {
+      "lat": 41.38,
+      "lon": 60.36,
+      "cyrillic": "Хива"
+    },
+    "Nukus": {
+      "lat": 42.46,
+      "lon": 59.61,
+      "cyrillic": "Нукус"
+    },
+    "Angren": {
+      "lat": 41.02,
+      "lon": 70.14,
+      "cyrillic": "Ангрен"
+    },
+    "Chirchiq": {
+      "lat": 41.47,
+      "lon": 69.58,
+      "cyrillic": "Чирчиқ"
+    },
+    "Olmaliq": {
+      "lat": 40.84,
+      "lon": 69.6,
+      "cyrillic": "Олмалиқ"
+    },
+    "Almati": {
+      "lat": 43.24,
+      "lon": 76.89,
+      "cyrillic": "Алматы"
+    },
+    "Astana": {
+      "lat": 51.16,
+      "lon": 71.43,
+      "cyrillic": "Астана"
+    },
+    "Shimkent": {
+      "lat": 42.32,
+      "lon": 69.59,
+      "cyrillic": "Шымкент"
+    },
+    "Qarag'anda": {
+      "lat": 49.8,
+      "lon": 73.1,
+      "cyrillic": "Караганда"
+    },
+    "Aqtobe": {
+      "lat": 50.28,
+      "lon": 57.21,
+      "cyrillic": "Актобе"
+    },
+    "Atirau": {
+      "lat": 47.09,
+      "lon": 51.92,
+      "cyrillic": "Атырау"
+    },
+    "Aqtau": {
+      "lat": 43.65,
+      "lon": 51.16,
+      "cyrillic": "Актау"
+    },
+    "Qostanay": {
+      "lat": 53.21,
+      "lon": 63.62,
+      "cyrillic": "Костанай"
+    },
+    "Pavlodar": {
+      "lat": 52.29,
+      "lon": 76.95,
+      "cyrillic": "Павлодар"
+    },
+    "Taraz": {
+      "lat": 42.9,
+      "lon": 71.37,
+      "cyrillic": "Тараз"
+    },
+    "Qizilo'rda": {
+      "lat": 44.85,
+      "lon": 65.51,
+      "cyrillic": "Кызылорда"
+    },
+    "Moskva": {
+      "lat": 55.76,
+      "lon": 37.62,
+      "cyrillic": "Москва"
+    },
+    "SPb": {
+      "lat": 59.94,
+      "lon": 30.31,
+      "cyrillic": "Санкт-Петербург"
+    },
+    "Qozon": {
+      "lat": 55.79,
+      "lon": 49.11,
+      "cyrillic": "Казань"
+    },
+    "Yekaterinburg": {
+      "lat": 56.84,
+      "lon": 60.65,
+      "cyrillic": "Екатеринбург"
+    },
+    "Novosibirsk": {
+      "lat": 55.03,
+      "lon": 82.92,
+      "cyrillic": "Новосибирск"
+    },
+    "Omsk": {
+      "lat": 54.99,
+      "lon": 73.37,
+      "cyrillic": "Омск"
+    },
+    "Chelyabinsk": {
+      "lat": 55.16,
+      "lon": 61.4,
+      "cyrillic": "Челябинск"
+    },
+    "Ufa": {
+      "lat": 54.74,
+      "lon": 55.97,
+      "cyrillic": "Уфа"
+    },
+    "Samara": {
+      "lat": 53.2,
+      "lon": 50.15,
+      "cyrillic": "Самара"
+    },
+    "Saratov": {
+      "lat": 51.53,
+      "lon": 46.03,
+      "cyrillic": "Саратов"
+    },
+    "Volgograd": {
+      "lat": 48.71,
+      "lon": 44.51,
+      "cyrillic": "Волгоград"
+    },
+    "Rostov": {
+      "lat": 47.23,
+      "lon": 39.72,
+      "cyrillic": "Ростов"
+    },
+    "Krasnodar": {
+      "lat": 45.04,
+      "lon": 38.98,
+      "cyrillic": "Краснодар"
+    },
+    "Voronej": {
+      "lat": 51.66,
+      "lon": 39.2,
+      "cyrillic": "Воронеж"
+    },
+    "N.Novgorod": {
+      "lat": 56.33,
+      "lon": 44.0,
+      "cyrillic": "Нижний Новгород"
+    },
+    "Perm": {
+      "lat": 58.01,
+      "lon": 56.25,
+      "cyrillic": "Пермь"
+    },
+    "Orenburg": {
+      "lat": 51.77,
+      "lon": 55.1,
+      "cyrillic": "Оренбург"
+    },
+    "Tyumen": {
+      "lat": 57.15,
+      "lon": 65.53,
+      "cyrillic": "Тюмень"
+    },
+    "Krasnoyarsk": {
+      "lat": 56.01,
+      "lon": 92.87,
+      "cyrillic": "Красноярск"
+    },
+    "Irkutsk": {
+      "lat": 52.29,
+      "lon": 104.28,
+      "cyrillic": "Иркутск"
+    },
+    "Vladivostok": {
+      "lat": 43.12,
+      "lon": 131.89,
+      "cyrillic": "Владивосток"
+    },
+    "Minsk": {
+      "lat": 53.9,
+      "lon": 27.56,
+      "cyrillic": "Минск"
+    },
+    "Brest": {
+      "lat": 52.1,
+      "lon": 23.73,
+      "cyrillic": "Брест"
+    },
+    "Gomel": {
+      "lat": 52.44,
+      "lon": 30.99,
+      "cyrillic": "Гомель"
+    },
+    "Grodno": {
+      "lat": 53.68,
+      "lon": 23.83,
+      "cyrillic": "Гродно"
+    },
+    "Mogilyov": {
+      "lat": 53.9,
+      "lon": 30.33,
+      "cyrillic": "Могилёв"
+    },
+    "Vitebsk": {
+      "lat": 55.19,
+      "lon": 30.2,
+      "cyrillic": "Витебск"
+    },
+    "Bishkek": {
+      "lat": 42.87,
+      "lon": 74.59,
+      "cyrillic": "Бишкек"
+    },
+    "Osh": {
+      "lat": 40.53,
+      "lon": 72.8,
+      "cyrillic": "Ош"
+    },
+    "Dushanbe": {
+      "lat": 38.56,
+      "lon": 68.79,
+      "cyrillic": "Душанбе"
+    },
+    "Balikchi": {
+      "lat": 42.46,
+      "lon": 76.19,
+      "cyrillic": "Балыкчы"
+    },
+    "Cholpon-Ata": {
+      "lat": 42.65,
+      "lon": 77.08,
+      "cyrillic": "Чолпон-Ата"
+    },
+    "Xo'jand": {
+      "lat": 40.28,
+      "lon": 69.62,
+      "cyrillic": "Худжанд"
+    },
+    "Ashxobod": {
+      "lat": 37.95,
+      "lon": 58.38,
+      "cyrillic": "Ашхабад"
+    },
+    "Boku": {
+      "lat": 40.41,
+      "lon": 49.87,
+      "cyrillic": "Баку"
+    },
+    "Tbilisi": {
+      "lat": 41.72,
+      "lon": 44.78,
+      "cyrillic": "Тбилиси"
+    },
+    "Istanbul": {
+      "lat": 41.01,
+      "lon": 28.98,
+      "cyrillic": "Стамбул"
+    },
+    "Urumchi": {
+      "lat": 43.83,
+      "lon": 87.62,
+      "cyrillic": "Урумчи"
+    },
+    "Qashqar": {
+      "lat": 39.47,
+      "lon": 75.99,
+      "cyrillic": "Кашгар"
+    },
+    "Varshava": {
+      "lat": 52.23,
+      "lon": 21.01,
+      "cyrillic": "Варшава"
+    },
+    "Kiyev": {
+      "lat": 50.45,
+      "lon": 30.52,
+      "cyrillic": "Киев"
+    },
+    "Riga": {
+      "lat": 56.95,
+      "lon": 24.11,
+      "cyrillic": "Рига"
+    },
+    "Vilnyus": {
+      "lat": 54.69,
+      "lon": 25.28,
+      "cyrillic": "Вильнюс"
+    },
+    "Kaunas": {
+      "lat": 54.9,
+      "lon": 23.9,
+      "cyrillic": "Каунас"
+    },
+    "Klaipeda": {
+      "lat": 55.71,
+      "lon": 21.13,
+      "cyrillic": "Клайпеда"
+    },
+    "Vroclav": {
+      "lat": 51.11,
+      "lon": 17.03,
+      "cyrillic": "Вроцлав"
+    },
+    "Krakov": {
+      "lat": 50.06,
+      "lon": 19.94,
+      "cyrillic": "Краков"
+    },
+    "Gdansk": {
+      "lat": 54.35,
+      "lon": 18.65,
+      "cyrillic": "Гданьск"
+    },
+    "Poznan": {
+      "lat": 52.41,
+      "lon": 16.93,
+      "cyrillic": "Познань"
+    },
+    "Lodz": {
+      "lat": 51.76,
+      "lon": 19.46,
+      "cyrillic": "Лодзь"
+    },
+    "Berlin": {
+      "lat": 52.52,
+      "lon": 13.4,
+      "cyrillic": "Берлин"
+    },
+    "Praga": {
+      "lat": 50.08,
+      "lon": 14.44,
+      "cyrillic": "Прага"
+    },
+    "Budapesht": {
+      "lat": 47.5,
+      "lon": 19.04,
+      "cyrillic": "Будапешт"
+    },
+    "Buxarest": {
+      "lat": 44.43,
+      "lon": 26.1,
+      "cyrillic": "Бухарест"
+    },
+    "Sofiya": {
+      "lat": 42.7,
+      "lon": 23.32,
+      "cyrillic": "София"
+    },
+    "Kishinyov": {
+      "lat": 47.01,
+      "lon": 28.86,
+      "cyrillic": "Кишинёв"
+    },
+    "Tallin": {
+      "lat": 59.44,
+      "lon": 24.75,
+      "cyrillic": "Таллин"
+    },
+    "Zarafshon": {
+      "lat": 41.57,
+      "lon": 64.2,
+      "cyrillic": "Зарафшон"
+    },
+    "Kattaqo'rg'on": {
+      "lat": 39.9,
+      "lon": 66.25,
+      "cyrillic": "Каттақўрғон"
+    },
+    "Olot": {
+      "lat": 39.2,
+      "lon": 63.85,
+      "cyrillic": "Олот"
+    },
+    "Ximki": {
+      "lat": 55.89,
+      "lon": 37.43,
+      "cyrillic": "Химки"
+    },
+    "Noginsk": {
+      "lat": 55.85,
+      "lon": 38.43,
+      "cyrillic": "Ногинск"
+    },
+    "Naro-Fominsk": {
+      "lat": 55.38,
+      "lon": 36.72,
+      "cyrillic": "Наро-Фоминск"
+    },
+    "Yoshkar-Ola": {
+      "lat": 56.63,
+      "lon": 47.87,
+      "cyrillic": "Йошкар-Ола"
+    },
+    "Kirov": {
+      "lat": 58.6,
+      "lon": 49.66,
+      "cyrillic": "Киров"
+    },
+    "Vologda": {
+      "lat": 59.22,
+      "lon": 39.89,
+      "cyrillic": "Вологда"
+    },
+    "Smolensk": {
+      "lat": 54.78,
+      "lon": 32.05,
+      "cyrillic": "Смоленск"
+    },
+    "Pyatigorsk": {
+      "lat": 44.04,
+      "lon": 43.06,
+      "cyrillic": "Пятигорск"
+    },
+    "Alashankou": {
+      "lat": 45.18,
+      "lon": 82.57,
+      "cyrillic": "Алашанькоу"
+    },
+    "Xorgos": {
+      "lat": 44.2,
+      "lon": 80.42,
+      "cyrillic": "Хоргос"
+    },
+    "Bekobod": {
+      "lat": 40.22,
+      "lon": 69.27,
+      "cyrillic": "Бекобод"
+    },
+    "Turtkul": {
+      "lat": 41.55,
+      "lon": 61.01667,
+      "cyrillic": "Тўрткўл"
+    },
+    "Qo'ng'irot": {
+      "lat": 43.04333,
+      "lon": 58.83944,
+      "cyrillic": "Қўнғирот"
+    },
+    "Qorako'l": {
+      "lat": 39.53333,
+      "lon": 63.83333,
+      "cyrillic": "Қоракўл"
+    },
+    "Sariog'och": {
+      "lat": 41.46042,
+      "lon": 69.16791,
+      "cyrillic": "Сариоғоч"
+    },
+    "Mazori Sharif": {
+      "lat": 36.70904,
+      "lon": 67.11087,
+      "cyrillic": "Мазори Шариф"
+    },
+    "Hayraton": {
+      "lat": 37.27,
+      "lon": 67.18,
+      "cyrillic": "Хайратон"
+    },
+    "Poti": {
+      "lat": 42.14272,
+      "lon": 41.67384,
+      "cyrillic": "Поти"
+    },
+    "Narpay": {
+      "lat": 39.9,
+      "lon": 65.6,
+      "cyrillic": "Норпай"
+    },
+    "Alaşehir": {
+      "lat": 38.35,
+      "lon": 28.517,
+      "cyrillic": "Алашехир"
+    }
+  },
+  "aliases": {
+    "olmaota": "Almati",
+    "ostona": "Astana",
+    "остона": "Astana",
+    "urgench": "Urganch",
+    "хоразм": "Urganch",
+    "khorezm": "Urganch",
+    "chimkent": "Shimkent",
+    "mogilev": "Mogilyov",
+    "sverdlovsk": "Yekaterinburg",
+    "ekaterinburg": "Yekaterinburg",
+    "свердловск": "Yekaterinburg",
+    "naginsk": "Noginsk",
+    "fergana": "Farg'ona",
+    "ferghana": "Farg'ona",
+    "karshi": "Qarshi",
+    "tashkent": "Toshkent",
+    "ташкент": "Toshkent",
+    "тошкент": "Toshkent",
+    "samarkand": "Samarqand",
+    "самарканд": "Samarqand",
+    "bukhara": "Buxoro",
+    "бухара": "Buxoro",
+    "andijan": "Andijon",
+    "андижан": "Andijon",
+    "fargona": "Farg'ona",
+    "фергана": "Farg'ona",
+    "наманган": "Namangan",
+    "qoqon": "Qo'qon",
+    "коканд": "Qo'qon",
+    "margilon": "Marg'ilon",
+    "маргилан": "Marg'ilon",
+    "джизак": "Jizzax",
+    "гулистан": "Guliston",
+    "навои": "Navoiy",
+    "карши": "Qarshi",
+    "шахрисабз": "Shahrisabz",
+    "термез": "Termiz",
+    "денау": "Denov",
+    "ургенч": "Urganch",
+    "xorazm": "Urganch",
+    "хорезм": "Urganch",
+    "хива": "Xiva",
+    "нукус": "Nukus",
+    "qoraqalpog": "Nukus",
+    "каракалпак": "Nukus",
+    "ангрен": "Angren",
+    "чирчик": "Chirchiq",
+    "алмалык": "Olmaliq",
+    "almaty": "Almati",
+    "алматы": "Almati",
+    "алма-ата": "Almati",
+    "астана": "Astana",
+    "нур-султан": "Astana",
+    "shymkent": "Shimkent",
+    "шымкент": "Shimkent",
+    "чимкент": "Shimkent",
+    "karaganda": "Qarag'anda",
+    "караганда": "Qarag'anda",
+    "aktobe": "Aqtobe",
+    "актобе": "Aqtobe",
+    "атырау": "Atirau",
+    "aktau": "Aqtau",
+    "актау": "Aqtau",
+    "kostanay": "Qostanay",
+    "костанай": "Qostanay",
+    "павлодар": "Pavlodar",
+    "тараз": "Taraz",
+    "kizilorda": "Qizilo'rda",
+    "кызылорда": "Qizilo'rda",
+    "moscow": "Moskva",
+    "москва": "Moskva",
+    "мск": "Moskva",
+    "peterburg": "SPb",
+    "петербург": "SPb",
+    "спб": "SPb",
+    "питер": "SPb",
+    "kazan": "Qozon",
+    "казань": "Qozon",
+    "екатеринбург": "Yekaterinburg",
+    "екб": "Yekaterinburg",
+    "новосибирск": "Novosibirsk",
+    "омск": "Omsk",
+    "челябинск": "Chelyabinsk",
+    "уфа": "Ufa",
+    "самара": "Samara",
+    "саратов": "Saratov",
+    "волгоград": "Volgograd",
+    "ростов": "Rostov",
+    "краснодар": "Krasnodar",
+    "воронеж": "Voronej",
+    "novgorod": "N.Novgorod",
+    "новгород": "N.Novgorod",
+    "пермь": "Perm",
+    "оренбург": "Orenburg",
+    "тюмень": "Tyumen",
+    "красноярск": "Krasnoyarsk",
+    "иркутск": "Irkutsk",
+    "владивосток": "Vladivostok",
+    "минск": "Minsk",
+    "брест": "Brest",
+    "гомель": "Gomel",
+    "гродно": "Grodno",
+    "могилев": "Mogilyov",
+    "витебск": "Vitebsk",
+    "бишкек": "Bishkek",
+    "ош": "Osh",
+    "balykchy": "Balikchi",
+    "балыкчы": "Balikchi",
+    "чолпоната": "Cholpon-Ata",
+    "душанбе": "Dushanbe",
+    "xojand": "Xo'jand",
+    "худжанд": "Xo'jand",
+    "hujand": "Xo'jand",
+    "ашхабад": "Ashxobod",
+    "баку": "Boku",
+    "baku": "Boku",
+    "тбилиси": "Tbilisi",
+    "стамбул": "Istanbul",
+    "урумчи": "Urumchi",
+    "urumqi": "Urumchi",
+    "кашгар": "Qashqar",
+    "kashgar": "Qashqar",
+    "варшава": "Varshava",
+    "warsaw": "Varshava",
+    "киев": "Kiyev",
+    "рига": "Riga",
+    "вильнюс": "Vilnyus",
+    "vilnius": "Vilnyus",
+    "каунас": "Kaunas",
+    "клайпеда": "Klaipeda",
+    "вроцлав": "Vroclav",
+    "wroclaw": "Vroclav",
+    "краков": "Krakov",
+    "krakow": "Krakov",
+    "гданьск": "Gdansk",
+    "гданск": "Gdansk",
+    "познань": "Poznan",
+    "лодзь": "Lodz",
+    "берлин": "Berlin",
+    "прага": "Praga",
+    "prague": "Praga",
+    "будапешт": "Budapesht",
+    "budapest": "Budapesht",
+    "бухарест": "Buxarest",
+    "bucharest": "Buxarest",
+    "софия": "Sofiya",
+    "sofia": "Sofiya",
+    "кишинев": "Kishinyov",
+    "кишинёв": "Kishinyov",
+    "таллин": "Tallin",
+    "tallinn": "Tallin",
+    "to'rtko'l": "Turtkul",
+    "tortkol": "Turtkul",
+    "turtkul": "Turtkul",
+    "новыйтуртккуль": "Turtkul",
+    "qo'ng'irot": "Qo'ng'irot",
+    "qongirot": "Qo'ng'irot",
+    "kungrad": "Qo'ng'irot",
+    "qunghirot": "Qo'ng'irot",
+    "кунград": "Qo'ng'irot",
+    "qorako'l": "Qorako'l",
+    "qorakol": "Qorako'l",
+    "sariag'och": "Sariog'och",
+    "sariagoch": "Sariog'och",
+    "saryagash": "Sariog'och",
+    "saryaghash": "Sariog'och",
+    "mozori sharif": "Mazori Sharif",
+    "mozorisharif": "Mazori Sharif",
+    "mazori sharif": "Mazori Sharif",
+    "mazorisharif": "Mazori Sharif",
+    "mazarisharif": "Mazori Sharif",
+    "mazarесharif": "Mazori Sharif",
+    "hayraton": "Hayraton",
+    "hairatan": "Hayraton",
+    "alasehir": "Alaşehir"
+  },
+  "destination_aliases": {
+    "issikkul": "Balikchi",
+    "иссыккуль": "Balikchi",
+    "issykkul": "Balikchi",
+    "issikkulko'li": "Balikchi",
+    "иссыккульскаяобласть": "Balikchi",
+    "fargonavodiysi": "Farg'ona",
+    "ферганскаядолина": "Farg'ona",
+    "ferganavalley": "Farg'ona",
+    "sirdaryo": "Guliston",
+    "сирдарё": "Guliston",
+    "sirdare": "Guliston",
+    "surxondaryo": "Termiz",
+    "сурхондарё": "Termiz",
+    "surkhandarya": "Termiz",
+    "qashqadaryo": "Qarshi",
+    "кашкадарё": "Qarshi",
+    "kashkadarya": "Qarshi",
+    "vodiy": "Farg'ona",
+    "водий": "Farg'ona",
+    "хоразм": "Urganch",
+    "хразм": "Urganch"
+  }
+}

@@ -468,6 +468,44 @@
     color: var(--green);
   }
   .btn-small.no { background: var(--red-dim); color: var(--red); }
+  .btn-small.info { background: var(--amber-dim); color: var(--text); }
+
+  /* Bozor narxi va qimmat yuklar (Qimmatyuklar bazasidan) */
+  .market-box {
+    background: var(--amber-dim);
+    border-radius: 12px;
+    padding: 10px 12px;
+    margin: -4px 0 14px;
+    font-size: 13.5px;
+    line-height: 1.45;
+  }
+  .market-box b { font-family: var(--font-mono); }
+  .market-box .muted { color: var(--hint); font-size: 12.5px; }
+  .market-box .up { color: var(--green); font-weight: 700; }
+  .market-box .down { color: var(--red); font-weight: 700; }
+  .leg-market { font-size: 12.5px; color: var(--hint); margin-top: 8px; }
+  .leg-market b { color: var(--text); font-family: var(--font-mono); }
+  .alert-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    margin-top: 10px;
+    font-size: 12.5px;
+  }
+  .switch-row {
+    display: flex;
+    gap: 10px;
+    align-items: flex-start;
+    background: var(--card);
+    border-radius: 12px;
+    padding: 12px;
+    margin-bottom: 14px;
+    cursor: pointer;
+  }
+  .switch-row input { width: 20px; height: 20px; margin: 1px 0 0; accent-color: var(--btn); flex-shrink: 0; }
+  .switch-row .title { font-weight: 700; font-size: 14px; }
+  .switch-row .hint { color: var(--hint); font-size: 12.5px; margin-top: 3px; line-height: 1.4; }
 </style>
 </head>
 <body>
@@ -606,6 +644,31 @@ const TR = {
   "Qayerga": "Қаерга",
   "Narxi (so'm)": "Нархи (сўм)",
   "Yo'nalishni kiriting": "Йўналишни киритинг",
+  "Bozorda o'rtacha": "Бозорда ўртача",
+  "Bozor narxi qidirilmoqda...": "Бозор нархи қидирилмоқда...",
+  "ta yuk": "та юк",
+  "kun": "кун",
+  "oxirgi": "охирги",
+  "Bu yo'nalishda oxirgi kunlarda yetarli yuk topilmadi": "Бу йўналишда охирги кунларда етарли юк топилмади",
+  "Sizning narxingiz o'rtachadan": "Сизнинг нархингиз ўртачадан",
+  "yuqori": "юқори",
+  "past": "паст",
+  "o'rtacha narxda": "ўртача нархда",
+  "Qimmat yuklarni botga yuborish": "Қиммат юкларни ботга юбориш",
+  "Manzildan chiqadigan, narxi bozor o'rtachasiga teng yoki undan yuqori yuklar bot chatiga yuboriladi.": "Манзилдан чиқадиган, нархи бозор ўртачасига тенг ёки ундан юқори юклар бот чатига юборилади.",
+  "Keyingi yo'nalish (ixtiyoriy)": "Кейинги йўналиш (ихтиёрий)",
+  "Masalan: Moskva yoki Rossiya": "Масалан: Москва ёки Россия",
+  "Bo'sh qoldirsangiz, barcha yo'nalishlardagi yuklar keladi.": "Бўш қолдирсангиз, барча йўналишлардаги юклар келади.",
+  "Mashinangiz hajmiga mos yuklar tanlanadi": "Машинангиз ҳажмига мос юклар танланади",
+  "Qimmat yuklar botga yuborilmoqda": "Қиммат юклар ботга юборилмоқда",
+  "Qimmat yuklarni kuzatish": "Қиммат юкларни кузатиш",
+  "To'xtatish": "Тўхтатиш",
+  "Yoqish": "Ёқиш",
+  "Yuborish to'xtatildi": "Юбориш тўхтатилди",
+  "Qimmat yuklar bot chatiga yuboriladi": "Қиммат юклар бот чатига юборилади",
+  "Manzil": "Манзил",
+  "Safar topilmadi": "Сафар топилмади",
+  "Reys yakunlangan": "Рейс якунланган",
   "Narxni kiriting": "Нархни киритинг",
   "Safar qo'shildi": "Сафар қўшилди",
 
@@ -714,6 +777,7 @@ const state = {
   selectedLegTripId: null,
   report: null,
   sharing: { max_trucks: 5, incoming: [], watching: [] },
+  marketAvailable: false,  // Qimmatyuklar bazasi ulanganmi (o'rtacha narx va qimmat yuklar)
   newTruck: null,  // qo'shish jarayonidagi mashina: { plateRaw, plate, display, brand }
 };
 
@@ -829,13 +893,15 @@ function openSheet(html) {
 
 // ---------------- Ma'lumotlarni yuklash ----------------
 async function loadAll() {
-  const [trucks, trips, activeTrips, report, sharing] = await Promise.all([
+  const [trucks, trips, activeTrips, report, sharing, market] = await Promise.all([
     api("/api/trucks"),
     api("/api/trips"),
     api("/api/trips/active"),
     api("/api/report"),
     api("/api/sharing"),
+    api("/api/market/status").catch(() => ({ available: false })),
   ]);
+  state.marketAvailable = !!(market && market.available);
   state.trucks = trucks;
   state.trips = trips;
   state.activeTrips = activeTrips;
@@ -1643,6 +1709,7 @@ async function renderLegs() {
   }
   const tripId = state.selectedLegTripId || state.activeTrips[0].id;
   const trip = await api(`/api/trips/${tripId}`);
+  state.legsTrip = trip;
   const total = trip.income;
   const listHtml = trip.legs.length ? trip.legs.map(l => `
     <div class="card">
@@ -1656,6 +1723,8 @@ async function renderLegs() {
           <button class="mini-delete" onclick="deleteLegFromList(${tripId}, ${l.id})">✕</button>
         </div>
       </div>
+      ${state.marketAvailable ? `<div class="leg-market" id="leg-market-${l.id}"></div>` : ""}
+      ${legAlertHtml(tripId, l)}
     </div>
   `).join("") : `<div class="empty-state" style="padding:24px 0;">${tr("Hali safar kiritilmagan")}</div>`;
 
@@ -1668,6 +1737,180 @@ async function renderLegs() {
     </div>
     ${listHtml}
   `;
+  if (state.marketAvailable) {
+    trip.legs.forEach(l => fillLegMarket(l));
+  }
+}
+
+// ---------------- Bozor narxi (Qimmatyuklar bazasidan) ----------------
+const marketCache = {};
+
+async function fetchRouteStats(from, to) {
+  const key = (from + "|" + to).toLowerCase();
+  if (!marketCache[key]) {
+    marketCache[key] = api(`/api/market/route?from=${encodeURIComponent(from)}&to=${encodeURIComponent(to)}`)
+      .catch(() => { delete marketCache[key]; return { available: false }; });
+  }
+  return marketCache[key];
+}
+
+function hasAverage(stats) {
+  return stats && stats.available && stats.avg_uzs;
+}
+
+function compareText(price, avg) {
+  if (!price || !avg) return "";
+  const pct = Math.round((price / avg - 1) * 100);
+  if (pct === 0) return tr("o'rtacha narxda");
+  return `${tr("Sizning narxingiz o'rtachadan")} <span class="${pct > 0 ? "up" : "down"}">${Math.abs(pct)}% ${tr(pct > 0 ? "yuqori" : "past")}</span>`;
+}
+
+async function fillLegMarket(leg) {
+  const stats = await fetchRouteStats(leg.from_point, leg.to_point);
+  const el = document.getElementById(`leg-market-${leg.id}`);
+  if (!el) return;
+  if (!hasAverage(stats)) { el.remove(); return; }
+  el.innerHTML = `📊 ${tr("Bozorda o'rtacha")}: <b>${formatSum(stats.avg_uzs)}</b>
+    (${stats.count} ${tr("ta yuk")}, ${stats.days} ${tr("kun")}) · ${compareText(leg.price, stats.avg_uzs)}`;
+}
+
+let legMarketTimer = null;
+let legMarketSeq = 0;
+
+function onLegRouteInput() {
+  clearTimeout(legMarketTimer);
+  legMarketTimer = setTimeout(updateLegMarket, 450);
+  updateAlertHint();
+}
+
+async function updateLegMarket() {
+  const box = document.getElementById("leg-market");
+  if (!box) return;
+  const from = document.getElementById("leg-from").value.trim();
+  const to = document.getElementById("leg-to").value.trim();
+  if (!from || !to) { box.hidden = true; return; }
+  const seq = ++legMarketSeq;
+  box.hidden = false;
+  box.innerHTML = `<span class="muted">${tr("Bozor narxi qidirilmoqda...")}</span>`;
+  const stats = await fetchRouteStats(from, to);
+  if (seq !== legMarketSeq || !document.getElementById("leg-market")) return;
+  if (!stats.available) { box.hidden = true; return; }
+  if (!hasAverage(stats)) {
+    box.innerHTML = `<span class="muted">📊 ${tr("Bu yo'nalishda oxirgi kunlarda yetarli yuk topilmadi")}</span>`;
+    return;
+  }
+  box.dataset.avg = stats.avg_uzs;
+  box.innerHTML = `📊 ${tr("Bozorda o'rtacha")}: <b>${formatSum(stats.avg_uzs)}</b><br>
+    <span class="muted">${escapeHtml(stats.from)} → ${escapeHtml(stats.to)} · ${tr("oxirgi")} ${stats.days} ${tr("kun")}, ${stats.count} ${tr("ta yuk")}</span>
+    <div id="leg-compare"></div>`;
+  updateLegCompare();
+}
+
+function updateLegCompare() {
+  const box = document.getElementById("leg-market");
+  const el = document.getElementById("leg-compare");
+  if (!box || !el) return;
+  const price = parseAmount(document.getElementById("leg-price").value);
+  el.innerHTML = price > 0 ? compareText(price, Number(box.dataset.avg)) : "";
+}
+
+// ---------------- Qimmat yuklarni bot chatiga yuborish ----------------
+function activeTripVolume(tripId) {
+  const trip = state.activeTrips.find(t => t.id === tripId);
+  const truck = trip && state.trucks.find(t => t.id === trip.truck_id);
+  return truck && truck.volume ? Number(truck.volume) : null;
+}
+
+function legAlertHtml(tripId, leg) {
+  if (leg.alert) {
+    const route = leg.alert.next_point
+      ? `${escapeHtml(leg.alert.from_point)} → ${escapeHtml(leg.alert.next_point)}`
+      : escapeHtml(leg.alert.from_point);
+    return `<div class="alert-row">
+      <span>🔔 ${tr("Qimmat yuklar botga yuborilmoqda")}: <b>${route}</b></span>
+      <button class="btn-small no" onclick="disableLegAlert(${tripId}, ${leg.id})">${tr("To'xtatish")}</button>
+    </div>`;
+  }
+  if (!state.marketAvailable) return "";
+  return `<div class="alert-row">
+    <span></span>
+    <button class="btn-small info" onclick="openLegAlertSheet(${tripId}, ${leg.id})">🔔 ${tr("Qimmat yuklarni kuzatish")}</button>
+  </div>`;
+}
+
+// Manzil va mashina hajmi bo'yicha izoh: "Toshkentdan ... 86 kub"
+function alertHintText(place, volume) {
+  let text = tr("Manzildan chiqadigan, narxi bozor o'rtachasiga teng yoki undan yuqori yuklar bot chatiga yuboriladi.");
+  if (place) text = `<b>${escapeHtml(place)}</b> — ` + text;
+  if (volume) text += ` ${tr("Mashinangiz hajmiga mos yuklar tanlanadi")} (${volume.toLocaleString("ru-RU")} ${tr("kub")}).`;
+  return text;
+}
+
+function alertFieldsHtml(place, volume) {
+  return `
+    <label class="switch-row">
+      <input type="checkbox" id="leg-alert" onchange="toggleAlertFields()">
+      <div>
+        <div class="title">🔔 ${tr("Qimmat yuklarni botga yuborish")}</div>
+        <div class="hint" id="leg-alert-hint">${alertHintText(place, volume)}</div>
+      </div>
+    </label>
+    <div class="field" id="leg-next-field" hidden>
+      <label>${tr("Keyingi yo'nalish (ixtiyoriy)")}</label>
+      <input type="text" id="leg-next" maxlength="200" placeholder="${tr("Masalan: Moskva yoki Rossiya")}">
+      <div class="card-sub" style="margin-top:6px;">${tr("Bo'sh qoldirsangiz, barcha yo'nalishlardagi yuklar keladi.")}</div>
+    </div>`;
+}
+
+function toggleAlertFields() {
+  const on = document.getElementById("leg-alert").checked;
+  document.getElementById("leg-next-field").hidden = !on;
+  if (on) document.getElementById("leg-next").focus();
+}
+
+function updateAlertHint() {
+  const hint = document.getElementById("leg-alert-hint");
+  if (!hint) return;
+  const tripId = state.selectedLegTripId || state.activeTrips[0].id;
+  hint.innerHTML = alertHintText(document.getElementById("leg-to").value.trim(), activeTripVolume(tripId));
+}
+
+function openLegAlertSheet(tripId, legId) {
+  const leg = (state.legsTrip && state.legsTrip.legs || []).find(l => l.id === legId);
+  if (!leg) return;
+  openSheet(`
+    <h2>🔔 ${tr("Qimmat yuklarni kuzatish")}</h2>
+    <p class="sheet-text">${alertHintText(leg.to_point, activeTripVolume(tripId))}</p>
+    <div class="field">
+      <label>${tr("Keyingi yo'nalish (ixtiyoriy)")}</label>
+      <input type="text" id="leg-next" maxlength="200" placeholder="${tr("Masalan: Moskva yoki Rossiya")}" onkeydown="if (event.key === 'Enter') submitLegAlert(${tripId}, ${legId})">
+      <div class="card-sub" style="margin-top:6px;">${tr("Bo'sh qoldirsangiz, barcha yo'nalishlardagi yuklar keladi.")}</div>
+    </div>
+    <div class="sheet-actions">
+      <button class="btn-secondary" onclick="closeSheet()">${tr("Bekor qilish")}</button>
+      <button class="btn-primary" onclick="submitLegAlert(${tripId}, ${legId})">${tr("Yoqish")}</button>
+    </div>
+  `);
+}
+
+async function submitLegAlert(tripId, legId) {
+  const next_point = document.getElementById("leg-next").value.trim();
+  try {
+    await api(`/api/trips/${tripId}/legs/${legId}/alert`, {
+      method: "POST", body: JSON.stringify({ next_point })
+    });
+    closeSheet();
+    renderLegs();
+    showToast(tr("Qimmat yuklar bot chatiga yuboriladi"));
+  } catch (e) { showToast(tr(e.message)); }
+}
+
+async function disableLegAlert(tripId, legId) {
+  try {
+    await api(`/api/trips/${tripId}/legs/${legId}/alert`, { method: "DELETE" });
+    renderLegs();
+    showToast(tr("Yuborish to'xtatildi"));
+  } catch (e) { showToast(tr(e.message)); }
 }
 
 async function deleteLegFromList(tripId, legId) {
@@ -1692,16 +1935,18 @@ function openAddLegSheet() {
     <h2>${tr("Safar qo'shish")}</h2>
     <div class="field">
       <label>${tr("Qayerdan")}</label>
-      <input type="text" id="leg-from" placeholder="Masalan: Toshkent">
+      <input type="text" id="leg-from" placeholder="Masalan: Andijon" oninput="onLegRouteInput()">
     </div>
     <div class="field">
       <label>${tr("Qayerga")}</label>
-      <input type="text" id="leg-to" placeholder="Masalan: Samarqand">
+      <input type="text" id="leg-to" placeholder="Masalan: Toshkent" oninput="onLegRouteInput()">
     </div>
+    ${state.marketAvailable ? `<div class="market-box" id="leg-market" hidden></div>` : ""}
     <div class="field">
       <label>${tr("Narxi (so'm)")}</label>
-      <input type="text" inputmode="decimal" id="leg-price" placeholder="0">
+      <input type="text" inputmode="decimal" id="leg-price" placeholder="0" oninput="updateLegCompare()">
     </div>
+    ${state.marketAvailable ? alertFieldsHtml("", activeTripVolume(state.selectedLegTripId || state.activeTrips[0].id)) : ""}
     <div class="sheet-actions">
       <button class="btn-secondary" onclick="closeSheet()">${tr("Bekor qilish")}</button>
       <button class="btn-primary" onclick="submitAddLeg()">${tr("Saqlash")}</button>
@@ -1716,14 +1961,17 @@ async function submitAddLeg() {
   if (!from_point || !to_point) return showToast(tr("Yo'nalishni kiriting"));
   if (!price || price <= 0) return showToast(tr("Narxni kiriting"));
   const tripId = state.selectedLegTripId || state.activeTrips[0].id;
+  const alertBox = document.getElementById("leg-alert");
+  const alert = !!(alertBox && alertBox.checked);
+  const next_point = alert ? document.getElementById("leg-next").value.trim() : "";
   try {
     await api(`/api/trips/${tripId}/legs`, {
-      method: "POST", body: JSON.stringify({ from_point, to_point, price })
+      method: "POST", body: JSON.stringify({ from_point, to_point, price, alert, next_point })
     });
     closeSheet();
     await loadAll();
     renderLegs();
-    showToast(tr("Safar qo'shildi"));
+    showToast(tr(alert ? "Qimmat yuklar bot chatiga yuboriladi" : "Safar qo'shildi"));
   } catch (e) { showToast(tr(e.message)); }
 }
 

@@ -73,6 +73,29 @@ CREATE TABLE IF NOT EXISTS truck_watchers (
     FOREIGN KEY (truck_id) REFERENCES trucks(id),
     FOREIGN KEY (user_id) REFERENCES users(id)
 );
+
+-- Safar manzilidan chiqadigan qimmat yuklarni bot chatiga yuborish (bitta reysda bittasi faol)
+CREATE TABLE IF NOT EXISTS load_alerts (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    user_id INTEGER NOT NULL,
+    trip_id INTEGER NOT NULL,
+    leg_id INTEGER NOT NULL UNIQUE,
+    from_point TEXT NOT NULL,
+    next_point TEXT,
+    active INTEGER NOT NULL DEFAULT 1,
+    created_at TEXT DEFAULT (datetime('now')),
+    FOREIGN KEY (user_id) REFERENCES users(id),
+    FOREIGN KEY (trip_id) REFERENCES trips(id),
+    FOREIGN KEY (leg_id) REFERENCES trip_legs(id)
+);
+
+-- Foydalanuvchiga yuborilgan yuklar (bir yuk ikki marta yuborilmasin). load_id — yuk.db dagi id
+CREATE TABLE IF NOT EXISTS load_alert_sent (
+    user_id INTEGER NOT NULL,
+    load_id INTEGER NOT NULL,
+    sent_at TEXT DEFAULT (datetime('now')),
+    PRIMARY KEY (user_id, load_id)
+);
 """
 
 # Eski bazalarga keyin qo'shilgan ustunlar: (jadval, ustun, turi)
@@ -207,6 +230,7 @@ async def delete_truck(user_id: int, truck_id: int):
         trip_ids = "SELECT id FROM trips WHERE truck_id=? AND user_id=?"
         await conn.execute(f"DELETE FROM trip_expenses WHERE trip_id IN ({trip_ids})", (truck_id, user_id))
         await conn.execute(f"DELETE FROM trip_legs WHERE trip_id IN ({trip_ids})", (truck_id, user_id))
+        await conn.execute(f"DELETE FROM load_alerts WHERE trip_id IN ({trip_ids})", (truck_id, user_id))
         await conn.execute("DELETE FROM trips WHERE truck_id=? AND user_id=?", (truck_id, user_id))
         await conn.execute("DELETE FROM truck_expenses WHERE truck_id=?", (truck_id,))
         await conn.execute("DELETE FROM truck_watchers WHERE truck_id=?", (truck_id,))
@@ -285,6 +309,8 @@ async def finish_trip(user_id: int, trip_id: int):
             "UPDATE trips SET status='finished', finished_at=datetime('now') WHERE id=? AND user_id=?",
             (trip_id, user_id),
         )
+        # Reys tugadi — qimmat yuklarni yuborish ham to'xtaydi
+        await conn.execute("UPDATE load_alerts SET active=0 WHERE trip_id=? AND user_id=?", (trip_id, user_id))
         await conn.commit()
 
 
@@ -295,6 +321,7 @@ async def delete_trip(user_id: int, trip_id: int):
             return
         await conn.execute("DELETE FROM trip_expenses WHERE trip_id=?", (trip_id,))
         await conn.execute("DELETE FROM trip_legs WHERE trip_id=?", (trip_id,))
+        await conn.execute("DELETE FROM load_alerts WHERE trip_id=?", (trip_id,))
         await conn.execute("DELETE FROM trips WHERE id=? AND user_id=?", (trip_id, user_id))
         await conn.commit()
 
@@ -311,11 +338,13 @@ async def delete_trip_expense(user_id: int, expense_id: int):
 
 async def delete_trip_leg(user_id: int, leg_id: int):
     async with aiosqlite.connect(DB_PATH) as conn:
-        await conn.execute(
+        cur = await conn.execute(
             """DELETE FROM trip_legs WHERE id=? AND trip_id IN
                (SELECT id FROM trips WHERE user_id=?)""",
             (leg_id, user_id),
         )
+        if cur.rowcount:
+            await conn.execute("DELETE FROM load_alerts WHERE leg_id=? AND user_id=?", (leg_id, user_id))
         await conn.commit()
 
 
@@ -371,6 +400,15 @@ async def add_trip_leg(trip_id: int, from_point: str, to_point: str, price: floa
         )
         await conn.commit()
         return cur.lastrowid
+
+
+async def get_trip_leg(trip_id: int, leg_id: int):
+    """(id, from_point, to_point) yoki None."""
+    async with aiosqlite.connect(DB_PATH) as conn:
+        cur = await conn.execute(
+            "SELECT id, from_point, to_point FROM trip_legs WHERE id=? AND trip_id=?", (leg_id, trip_id)
+        )
+        return await cur.fetchone()
 
 
 async def list_trip_legs(trip_id: int):
@@ -595,3 +633,107 @@ async def get_truck_trip(truck_id: int, trip_id: int):
             (trip_id, truck_id),
         )
         return await cur.fetchone()
+
+
+# ---------------- Qimmat yuklar (bot chatiga) ----------------
+async def set_leg_alert(user_id: int, trip_id: int, leg_id: int, from_point: str, next_point: str) -> int:
+    """Safar uchun yuborishni yoqadi. Shu reysdagi boshqa safarlarniki o'chadi —
+    bir vaqtda faqat oxirgi manzildan qidiriladi."""
+    async with aiosqlite.connect(DB_PATH) as conn:
+        await conn.execute(
+            "UPDATE load_alerts SET active=0 WHERE trip_id=? AND user_id=? AND leg_id<>?",
+            (trip_id, user_id, leg_id),
+        )
+        await conn.execute(
+            """INSERT INTO load_alerts (user_id, trip_id, leg_id, from_point, next_point, active)
+               VALUES (?, ?, ?, ?, ?, 1)
+               ON CONFLICT(leg_id) DO UPDATE SET
+                   from_point=excluded.from_point, next_point=excluded.next_point,
+                   active=1, created_at=datetime('now')""",
+            (user_id, trip_id, leg_id, from_point, next_point or None),
+        )
+        cur = await conn.execute("SELECT id FROM load_alerts WHERE leg_id=?", (leg_id,))
+        alert_id = (await cur.fetchone())[0]
+        await conn.commit()
+        return alert_id
+
+
+async def disable_alert(user_id: int, alert_id: int) -> bool:
+    async with aiosqlite.connect(DB_PATH) as conn:
+        cur = await conn.execute(
+            "UPDATE load_alerts SET active=0 WHERE id=? AND user_id=? AND active=1", (alert_id, user_id)
+        )
+        await conn.commit()
+        return cur.rowcount > 0
+
+
+async def disable_leg_alert(user_id: int, leg_id: int) -> bool:
+    async with aiosqlite.connect(DB_PATH) as conn:
+        cur = await conn.execute(
+            "UPDATE load_alerts SET active=0 WHERE leg_id=? AND user_id=? AND active=1", (leg_id, user_id)
+        )
+        await conn.commit()
+        return cur.rowcount > 0
+
+
+async def list_trip_alerts(trip_id: int):
+    """Reysdagi faol yuborishlar: {leg_id: (id, from_point, next_point)}."""
+    async with aiosqlite.connect(DB_PATH) as conn:
+        cur = await conn.execute(
+            "SELECT leg_id, id, from_point, next_point FROM load_alerts WHERE trip_id=? AND active=1",
+            (trip_id,),
+        )
+        return {r[0]: r[1:] for r in await cur.fetchall()}
+
+
+async def list_active_alerts():
+    """Faol reyslardagi yoqilgan yuborishlar:
+    (id, user_id, telegram_id, from_point, next_point, mashina hajmi, mashina nomi)."""
+    async with aiosqlite.connect(DB_PATH) as conn:
+        cur = await conn.execute(
+            """SELECT a.id, a.user_id, u.telegram_id, a.from_point, a.next_point, t.volume, t.name
+               FROM load_alerts a
+               JOIN trips tr ON tr.id = a.trip_id AND tr.status = 'active'
+               JOIN trucks t ON t.id = tr.truck_id
+               JOIN users u ON u.id = a.user_id
+               WHERE a.active = 1"""
+        )
+        return await cur.fetchall()
+
+
+async def get_active_alert(alert_id: int):
+    """list_active_alerts() bilan bir xil ko'rinishda, bitta yuborish uchun."""
+    async with aiosqlite.connect(DB_PATH) as conn:
+        cur = await conn.execute(
+            """SELECT a.id, a.user_id, u.telegram_id, a.from_point, a.next_point, t.volume, t.name
+               FROM load_alerts a
+               JOIN trips tr ON tr.id = a.trip_id AND tr.status = 'active'
+               JOIN trucks t ON t.id = tr.truck_id
+               JOIN users u ON u.id = a.user_id
+               WHERE a.id = ? AND a.active = 1""",
+            (alert_id,),
+        )
+        return await cur.fetchone()
+
+
+async def unsent_load_ids(user_id: int, load_ids: list[int]) -> set[int]:
+    if not load_ids:
+        return set()
+    async with aiosqlite.connect(DB_PATH) as conn:
+        cur = await conn.execute(
+            f"SELECT load_id FROM load_alert_sent WHERE user_id=? AND load_id IN ({','.join('?' * len(load_ids))})",
+            (user_id, *load_ids),
+        )
+        sent = {r[0] for r in await cur.fetchall()}
+        return set(load_ids) - sent
+
+
+async def mark_loads_sent(user_id: int, load_ids: list[int]):
+    async with aiosqlite.connect(DB_PATH) as conn:
+        await conn.executemany(
+            "INSERT OR IGNORE INTO load_alert_sent (user_id, load_id) VALUES (?, ?)",
+            [(user_id, i) for i in load_ids],
+        )
+        # Eski yozuvlar kerak emas (yuklar FRESH_HOURS dan keyin baribir yuborilmaydi)
+        await conn.execute("DELETE FROM load_alert_sent WHERE sent_at < datetime('now', '-3 days')")
+        await conn.commit()

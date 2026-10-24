@@ -3,9 +3,12 @@ import logging
 import os
 import re
 import time
+from datetime import datetime
 from typing import Annotated
+from zoneinfo import ZoneInfo
 
 from aiogram import Bot, Dispatcher, F
+from aiogram.exceptions import TelegramForbiddenError
 from aiogram.filters import CommandStart
 from aiogram.types import (
     CallbackQuery, InlineKeyboardButton, InlineKeyboardMarkup, MenuButtonWebApp, Message, WebAppInfo,
@@ -17,6 +20,7 @@ from pydantic import BaseModel, Field, StringConstraints
 import uvicorn
 
 import database as db
+import market
 from auth import validate_init_data, InitDataError
 
 logging.basicConfig(level=logging.INFO)
@@ -111,10 +115,20 @@ class TripExpenseIn(BaseModel):
     note: Note = ""
 
 
+OptionalText = Annotated[str, StringConstraints(strip_whitespace=True, max_length=200)]
+
+
 class TripLegIn(BaseModel):
     from_point: Text
     to_point: Text
     price: Money
+    # Manzildan chiqadigan qimmat yuklarni bot chatiga yuborish (ixtiyoriy)
+    alert: bool = False
+    next_point: OptionalText = ""
+
+
+class LegAlertIn(BaseModel):
+    next_point: OptionalText = ""
 
 
 # ---------------- Trucks ----------------
@@ -277,6 +291,7 @@ async def trip_detail(trip):
     trip_id = trip[0]
     expenses = await db.list_trip_expenses(trip_id)
     legs = await db.list_trip_legs(trip_id)
+    alerts = await db.list_trip_alerts(trip_id)
     income = sum(l[3] for l in legs)
     expense = sum(e[2] for e in expenses)
     return {
@@ -294,7 +309,13 @@ async def trip_detail(trip):
             for e in expenses
         ],
         "legs": [
-            {"id": l[0], "from_point": l[1], "to_point": l[2], "price": l[3], "created_at": l[4]}
+            {
+                "id": l[0], "from_point": l[1], "to_point": l[2], "price": l[3], "created_at": l[4],
+                "alert": (
+                    {"id": alerts[l[0]][0], "from_point": alerts[l[0]][1], "next_point": alerts[l[0]][2] or ""}
+                    if l[0] in alerts else None
+                ),
+            }
             for l in legs
         ],
     }
@@ -335,7 +356,37 @@ async def api_add_trip_leg(
     leg_id = await db.add_trip_leg(
         trip_id, payload.from_point, payload.to_point, payload.price
     )
+    if payload.alert:
+        if trip[3] != "active":
+            raise HTTPException(400, "Reys yakunlangan")
+        await enable_alert(user_id, trip_id, leg_id, payload.to_point, payload.next_point)
     return {"id": leg_id}
+
+
+@app.post("/api/trips/{trip_id}/legs/{leg_id}/alert")
+async def api_enable_leg_alert(
+    trip_id: int, leg_id: int, payload: LegAlertIn, x_telegram_init_data: str = Header(default="")
+):
+    user_id = await get_user_id(x_telegram_init_data)
+    trip = await db.get_trip(user_id, trip_id)
+    if not trip:
+        raise HTTPException(404, "Reys topilmadi")
+    if trip[3] != "active":
+        raise HTTPException(400, "Reys yakunlangan")
+    leg = await db.get_trip_leg(trip_id, leg_id)
+    if not leg:
+        raise HTTPException(404, "Safar topilmadi")
+    await enable_alert(user_id, trip_id, leg_id, leg[2], payload.next_point)
+    return {"ok": True}
+
+
+@app.delete("/api/trips/{trip_id}/legs/{leg_id}/alert")
+async def api_disable_leg_alert(trip_id: int, leg_id: int, x_telegram_init_data: str = Header(default="")):
+    user_id = await get_user_id(x_telegram_init_data)
+    if not await db.get_trip(user_id, trip_id):
+        raise HTTPException(404, "Reys topilmadi")
+    await db.disable_leg_alert(user_id, leg_id)
+    return {"ok": True}
 
 
 @app.delete("/api/trips/{trip_id}/legs/{leg_id}")
@@ -348,6 +399,40 @@ async def api_delete_trip_leg(
         raise HTTPException(404, "Reys topilmadi")
     await db.delete_trip_leg(user_id, leg_id)
     return {"ok": True}
+
+
+# ---------------- Bozor narxlari (Qimmatyuklar bazasidan) ----------------
+_route_cache: dict = {}
+ROUTE_CACHE_SEC = 300
+
+
+@app.get("/api/market/status")
+async def api_market_status(x_telegram_init_data: str = Header(default="")):
+    await get_user_id(x_telegram_init_data)
+    return {"available": market.available()}
+
+
+@app.get("/api/market/route")
+async def api_market_route(
+    from_point: str = Query(alias="from", max_length=200),
+    to_point: str = Query(alias="to", max_length=200),
+    x_telegram_init_data: str = Header(default=""),
+):
+    """Safar qo'shishda: shu yo'nalishda oxirgi kunlarda yuklar o'rtacha necha pul bo'lgan."""
+    await get_user_id(x_telegram_init_data)
+    key = (from_point.strip().lower(), to_point.strip().lower())
+    cached = _route_cache.get(key)
+    if cached and time.time() - cached[0] < ROUTE_CACHE_SEC:
+        return cached[1]
+    try:
+        stats = await asyncio.to_thread(market.route_stats, from_point, to_point)
+    except Exception:
+        logging.exception("Bozor narxi hisoblanmadi")
+        return {"available": False}
+    if len(_route_cache) > 1000:
+        _route_cache.clear()
+    _route_cache[key] = (time.time(), stats)
+    return stats
 
 
 # ---------------- Report ----------------
@@ -530,6 +615,151 @@ async def api_watched_trip(truck_id: int, trip_id: int, x_telegram_init_data: st
     return await trip_detail(trip)
 
 
+# ---------------- Qimmat yuklarni bot chatiga yuborish ----------------
+ALERT_CHECK_SEC = int(os.getenv("ALERT_CHECK_SEC", "180"))
+MAX_LOADS_PER_CHECK = 5   # bitta tekshiruvda bitta foydalanuvchiga ko'pi bilan shuncha yuk
+TASHKENT_TZ = ZoneInfo("Asia/Tashkent")
+
+
+def fmt_money(amount, currency) -> str:
+    n = f"{round(amount):,}".replace(",", " ")
+    if currency == "UZS":
+        return f"{n} so'm"
+    if currency == "USD":
+        return f"${n}"
+    if currency == "RUB":
+        return f"{n} rubl"
+    return f"{n} {currency}"
+
+
+def fmt_phone(phone) -> str:
+    digits = re.sub(r"\D", "", str(phone or ""))
+    if len(digits) == 9:
+        digits = "998" + digits
+    if len(digits) == 12 and digits.startswith("998"):
+        return f"+998 {digits[3:5]} {digits[5:8]} {digits[8:10]} {digits[10:]}"
+    return f"+{digits}" if digits else ""
+
+
+def alert_route_text(from_point: str, next_point: str) -> str:
+    return f"{from_point} → {next_point}" if next_point else f"{from_point}dan"
+
+
+def stop_alert_button(alert_id: int) -> InlineKeyboardButton:
+    return InlineKeyboardButton(text="🔕 To'xtatish", callback_data=f"alert:off:{alert_id}")
+
+
+def load_message(load: dict, alert_id: int):
+    pct = round(load["pct"])
+    above = "o'rtacha narxda" if pct < 1 else f"o'rtachadan {pct}% qimmat"
+    details = [d for d in [
+        load.get("cargo"),
+        f"{load['tons']:g} t" if load.get("tons") else None,
+        f"{load['volume']} kub" if load.get("volume") else None,
+        f"{load['km']} km" if load.get("km") else None,
+    ] if d]
+    posted = datetime.fromtimestamp(load["ts"], TASHKENT_TZ)
+    minutes = max(0, int((time.time() - load["ts"]) // 60))
+    lines = [
+        f"🔥 Qimmat yuk: {load['from']} → {load['to']}",
+        f"💰 {fmt_money(load['price'], load['currency'])} — {above}",
+        f"📊 Bozor o'rtachasi: {fmt_money(load['avg_price'], load['currency'])} "
+        f"({load['avg_count']} ta yuk, {market.STATS_DAYS} kun)",
+    ]
+    if details:
+        lines.append("📦 " + " · ".join(str(d) for d in details))
+    if load.get("phone"):
+        lines.append(f"📞 {fmt_phone(load['phone'])}")
+    lines.append(f"🕒 {posted:%H:%M} ({minutes} daqiqa oldin)")
+    buttons = []
+    if load.get("link"):
+        buttons.append(InlineKeyboardButton(text="📄 E'lonni ochish", url=load["link"]))
+    buttons.append(stop_alert_button(alert_id))
+    return "\n".join(lines), InlineKeyboardMarkup(inline_keyboard=[buttons])
+
+
+_alert_lock = asyncio.Lock()   # fon tekshiruvi va yoqilgandagi darhol tekshiruv bir yukni ikki marta yubormasin
+_background_tasks: set = set()
+
+
+async def check_alert(alert) -> int:
+    """Bitta yuborish uchun yangi qimmat yuklarni topib, bot chatiga tashlaydi. Nechta yuborilganini qaytaradi."""
+    async with _alert_lock:
+        return await _check_alert(alert)
+
+
+async def _check_alert(alert) -> int:
+    alert_id, user_id, telegram_id, from_point, next_point, volume, _ = alert
+    loads = await asyncio.to_thread(market.find_expensive_loads, from_point, next_point, volume)
+    if not loads:
+        return 0
+    unsent = await db.unsent_load_ids(user_id, [l["id"] for l in loads])
+    fresh = [l for l in loads if l["id"] in unsent][:MAX_LOADS_PER_CHECK]
+    sent = []
+    for load in fresh:
+        text, kb = load_message(load, alert_id)
+        try:
+            await bot.send_message(telegram_id, text, reply_markup=kb, disable_web_page_preview=True)
+            sent.append(load["id"])
+        except TelegramForbiddenError:
+            # Foydalanuvchi botni bloklagan — behuda urinmaymiz
+            await db.disable_alert(user_id, alert_id)
+            break
+        except Exception:
+            logging.warning("Qimmat yuk yuborilmadi: user_id=%s", user_id, exc_info=True)
+            break
+        await asyncio.sleep(0.5)
+    if sent:
+        await db.mark_loads_sent(user_id, sent)
+    return len(sent)
+
+
+async def enable_alert(user_id: int, trip_id: int, leg_id: int, from_point: str, next_point: str):
+    alert_id = await db.set_leg_alert(user_id, trip_id, leg_id, from_point, next_point)
+    alert = await db.get_active_alert(alert_id)
+    if not alert or not bot:
+        return
+    volume = alert[5]
+    text = (
+        f"🔔 {alert_route_text(from_point, next_point)} qimmat yuklar kuzatilmoqda.\n\n"
+        "Narxi bozordagi o'rtacha narxga teng yoki undan yuqori"
+        + (f", {volume:g} kub mashinangizga mos" if volume else "")
+        + " yangi yuklar shu chatga yuborib turiladi.\n"
+        "Reys yakunlanganda kuzatish o'zi to'xtaydi."
+    )
+    if not market.available():
+        text += "\n\n⚠️ Hozircha yuklar bazasiga ulanib bo'lmadi — ulanishi bilan yuborila boshlaydi."
+    await notify(user_id, text, reply_markup=InlineKeyboardMarkup(inline_keyboard=[[stop_alert_button(alert_id)]]))
+    # Hozir bor yuklarni darhol yuboramiz (keyingi tekshiruvni kutmasdan)
+    task = asyncio.create_task(_check_alert_safe(alert))
+    _background_tasks.add(task)
+    task.add_done_callback(_background_tasks.discard)
+
+
+async def _check_alert_safe(alert):
+    try:
+        await check_alert(alert)
+    except Exception:
+        logging.exception("Qimmat yuklar tekshiruvi xatosi: alert %s", alert[0])
+
+
+async def run_alerts():
+    if not bot:
+        return
+    if not market.YUK_DB_PATH:
+        logging.info("YUK_DB_PATH berilmagan — qimmat yuklarni yuborish o'chiq")
+        return
+    while True:
+        await asyncio.sleep(ALERT_CHECK_SEC)
+        try:
+            alerts = await db.list_active_alerts()
+        except Exception:
+            logging.exception("Yuborishlar ro'yxati o'qilmadi")
+            continue
+        for alert in alerts:
+            await _check_alert_safe(alert)
+
+
 # ---------------- Frontend ----------------
 STATIC_DIR = os.path.join(os.path.dirname(__file__), "static")
 app.mount("/assets", StaticFiles(directory=STATIC_DIR), name="assets")
@@ -612,6 +842,20 @@ async def bot_watch_decision(callback: CallbackQuery):
 
 
 
+@dp.callback_query(F.data.startswith("alert:off:"))
+async def bot_alert_off(callback: CallbackQuery):
+    """Qimmat yuk xabaridagi "To'xtatish" tugmasi."""
+    try:
+        alert_id = int(callback.data.split(":")[2])
+    except (IndexError, ValueError):
+        return await callback.answer()
+    user_id = await db.get_user_by_telegram_id(callback.from_user.id)
+    if user_id and await db.disable_alert(user_id, alert_id):
+        await callback.answer("Qimmat yuklarni yuborish to'xtatildi", show_alert=True)
+    else:
+        await callback.answer("Allaqachon to'xtatilgan")
+
+
 @dp.message(F.chat.type == "private")
 async def bot_any_message(message: Message):
     await send_open(message, "Ilovani ochish uchun pastdagi tugmani bosing:")
@@ -651,7 +895,7 @@ async def run_web():
 
 async def main():
     await db.init_db()
-    await asyncio.gather(run_web(), run_bot())
+    await asyncio.gather(run_web(), run_bot(), run_alerts())
 
 
 if __name__ == "__main__":
