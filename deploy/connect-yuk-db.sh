@@ -41,6 +41,10 @@ while [ "$d" != "/" ]; do
     d=$(dirname "$d")
 done
 setfacl -m "u:$APP_USER:r" "$DB"
+# Baza WAL rejimida: o'qish uchun yonidagi -wal/-shm ham kerak. Ular Qimmatyuklar
+# qayta ishga tushganda qayta yaratiladi — default ACL yangilariga ham o'qish huquqini beradi
+for f in "$DB-wal" "$DB-shm"; do [ -f "$f" ] && setfacl -m "u:$APP_USER:r" "$f"; done
+setfacl -d -m "u:$APP_USER:r" "$DIR"
 
 runuser -u "$APP_USER" -- "$VENV/bin/python" - "$DB" <<'EOF'
 import sqlite3, sys
