@@ -4,7 +4,7 @@
 # bo'lishi kerak (git archive). Botni ISHGA TUSHIRMAYDI.
 #
 #   sudo /opt/fura-bot2/app/deploy/install.sh
-#   sudo nano /etc/fura-bot2/env          # BOT_TOKEN, WEBAPP_URL
+#   sudo nano /etc/fura-bot2/env          # BOT_TOKEN, WEBAPP_URL, ADMIN_TELEGRAM_ID (/admin paneli)
 #   sudo systemctl start fura-bot2
 set -euo pipefail
 
@@ -42,7 +42,7 @@ echo "==> Virtual muhit va paketlar"
 
 echo "==> Maxfiy sozlamalar: $ENV_FILE"
 if [ ! -f "$ENV_FILE" ]; then
-    printf 'BOT_TOKEN=\nWEBAPP_URL=https://fura.158-180-43-26.sslip.io\nDEV_MODE=0\n' > "$ENV_FILE"
+    printf 'BOT_TOKEN=\nWEBAPP_URL=https://fura.158-180-43-26.sslip.io\nDEV_MODE=0\nADMIN_TELEGRAM_ID=\n' > "$ENV_FILE"
     echo "   YANGI yaratildi — BOT_TOKEN ni yozing: sudo nano $ENV_FILE"
 fi
 chown root:"$APP_USER" "$ENV_FILE"

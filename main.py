@@ -10,9 +10,10 @@ from zoneinfo import ZoneInfo
 import aiohttp
 from aiogram import Bot, Dispatcher, F
 from aiogram.exceptions import TelegramForbiddenError
-from aiogram.filters import CommandStart
+from aiogram.filters import Command, CommandStart
 from aiogram.types import (
-    CallbackQuery, InlineKeyboardButton, InlineKeyboardMarkup, MenuButtonWebApp, Message, WebAppInfo,
+    BufferedInputFile, CallbackQuery, InlineKeyboardButton, InlineKeyboardMarkup, MenuButtonWebApp,
+    Message, WebAppInfo,
 )
 from fastapi import FastAPI, Header, HTTPException, Query
 from fastapi.responses import FileResponse
@@ -20,6 +21,7 @@ from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field, StringConstraints
 import uvicorn
 
+import admin
 import database as db
 import market
 from auth import validate_init_data, InitDataError
@@ -895,6 +897,11 @@ async def send_open(message: Message, text: str):
 
 @dp.message(CommandStart())
 async def bot_start(message: Message):
+    # Botni ishga tushirgan, lekin ilovani hali ochmaganlar ham admin statistikasida ko'rinsin
+    user = message.from_user
+    if user:
+        await db.get_or_create_user(telegram_id=user.id, full_name=user.full_name,
+                                    username=user.username or "")
     await send_open(message, "Assalomu alaykum! Fura reyslaringizni shu yerdan boshqaring:")
 
 
@@ -932,6 +939,44 @@ async def bot_alert_off(callback: CallbackQuery):
         await callback.answer("Qimmat yuklarni yuborish to'xtatildi", show_alert=True)
     else:
         await callback.answer("Allaqachon to'xtatilgan")
+
+
+# ---------------- Admin panel ----------------
+# bot_any_message'dan OLDIN ro'yxatdan o'tishi shart (aiogram handlerlarni tartib bilan
+# tekshiradi). Admin bo'lmaganlar uchun filtr o'tmaydi — xabar odatdagidek pastga tushadi.
+_is_admin = F.from_user.id.in_(admin.ADMIN_IDS)
+
+
+def admin_keyboard() -> InlineKeyboardMarkup:
+    return InlineKeyboardMarkup(inline_keyboard=[
+        [InlineKeyboardButton(text="📊 Statistika", callback_data="adm:stats"),
+         InlineKeyboardButton(text="👤 Oxirgi foydalanuvchilar", callback_data="adm:users")],
+        [InlineKeyboardButton(text="📥 Excel: foydalanuvchilar, mashinalar, reyslar",
+                              callback_data="adm:excel")],
+    ])
+
+
+@dp.message(Command("admin"), F.chat.type == "private", _is_admin)
+async def bot_admin(message: Message):
+    await message.answer(admin.stats_text(await db.admin_stats()),
+                         parse_mode="HTML", reply_markup=admin_keyboard())
+
+
+@dp.callback_query(F.data.startswith("adm:"), _is_admin)
+async def bot_admin_action(callback: CallbackQuery):
+    action = callback.data.split(":", 1)[1]
+    await callback.answer()
+    if action == "stats":
+        await callback.message.answer(admin.stats_text(await db.admin_stats()),
+                                      parse_mode="HTML", reply_markup=admin_keyboard())
+    elif action == "users":
+        await callback.message.answer(admin.recent_users_text(await db.admin_users()),
+                                      parse_mode="HTML")
+    elif action == "excel":
+        data = await admin.export_excel()
+        name = f"depo-hisobkitob-{datetime.now(TASHKENT_TZ):%Y-%m-%d}.xlsx"
+        await callback.message.answer_document(BufferedInputFile(data, filename=name),
+                                               caption="📥 Foydalanuvchilar, mashinalar va reyslar")
 
 
 @dp.message(F.chat.type == "private")

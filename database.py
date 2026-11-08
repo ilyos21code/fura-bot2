@@ -101,6 +101,11 @@ CREATE TABLE IF NOT EXISTS load_alert_sent (
 # Eski bazalarga keyin qo'shilgan ustunlar: (jadval, ustun, turi)
 MIGRATIONS = [
     ("users", "username", "TEXT"),
+    # Admin panel uchun: qachon qo'shilgan va oxirgi marta qachon kirgan (UTC, kuniga
+    # ko'pi bilan bir marta yangilanadi). Bu ustunlardan oldingi foydalanuvchilarda
+    # bo'sh — ular uchun admin hisobotida birinchi/oxirgi mashina-reys sanasi olinadi.
+    ("users", "created_at", "TEXT"),
+    ("users", "last_seen_at", "TEXT"),
     ("trucks", "plate", "TEXT"),
     ("trucks", "brand", "TEXT"),
     ("trucks", "volume", "REAL"),
@@ -136,20 +141,23 @@ async def init_db():
 async def get_or_create_user(telegram_id: int, full_name: str = "", username: str = "") -> int:
     async with aiosqlite.connect(DB_PATH) as conn:
         cur = await conn.execute(
-            "SELECT id, full_name, username FROM users WHERE telegram_id=?", (telegram_id,)
+            "SELECT id, full_name, username, last_seen_at >= date('now') FROM users WHERE telegram_id=?",
+            (telegram_id,),
         )
         row = await cur.fetchone()
         if row:
-            # Ism yoki username o'zgargan bo'lsa yangilab qo'yamiz (so'rovlarda ko'rinadi)
-            if (row[1] or "", row[2] or "") != (full_name, username):
+            # Ism yoki username o'zgargan bo'lsa yangilab qo'yamiz (so'rovlarda ko'rinadi);
+            # oxirgi kirish sanasi — kuniga bir marta
+            if (row[1] or "", row[2] or "") != (full_name, username) or not row[3]:
                 await conn.execute(
-                    "UPDATE users SET full_name=?, username=? WHERE id=?",
+                    "UPDATE users SET full_name=?, username=?, last_seen_at=datetime('now') WHERE id=?",
                     (full_name, username, row[0]),
                 )
                 await conn.commit()
             return row[0]
         cur = await conn.execute(
-            "INSERT INTO users (telegram_id, full_name, username) VALUES (?, ?, ?)",
+            "INSERT INTO users (telegram_id, full_name, username, created_at, last_seen_at) "
+            "VALUES (?, ?, ?, datetime('now'), datetime('now'))",
             (telegram_id, full_name, username),
         )
         await conn.commit()
@@ -766,3 +774,98 @@ async def mark_loads_sent(user_id: int, load_ids: list[int]):
         # Eski yozuvlar kerak emas (yuklar FRESH_HOURS dan keyin baribir yuborilmaydi)
         await conn.execute("DELETE FROM load_alert_sent WHERE sent_at < datetime('now', '-3 days')")
         await conn.commit()
+
+
+# ---------------- Admin panel ----------------
+# Foydalanuvchining birinchi/oxirgi faolligi: users.created_at/last_seen_at bo'sh bo'lsa
+# (ustunlar qo'shilishidan oldingi foydalanuvchilar) — mashina va reys sanalaridan.
+_USER_ACTIVITY = """
+    SELECT u.id AS user_id,
+           COALESCE(u.created_at, MIN(a.ts)) AS first_seen,
+           MAX(COALESCE(u.last_seen_at, ''), COALESCE(MAX(a.ts), '')) AS last_seen
+    FROM users u LEFT JOIN (
+        SELECT user_id, created_at AS ts FROM trucks
+        UNION ALL SELECT user_id, created_at FROM trips
+        UNION ALL SELECT tr.user_id, l.created_at FROM trip_legs l JOIN trips tr ON tr.id = l.trip_id
+        UNION ALL SELECT tr.user_id, e.created_at FROM trip_expenses e JOIN trips tr ON tr.id = e.trip_id
+    ) a ON a.user_id = u.id
+    GROUP BY u.id
+"""
+
+
+async def admin_stats() -> dict:
+    """Admin paneldagi umumiy raqamlar."""
+    async with aiosqlite.connect(DB_PATH) as conn:
+        cur = await conn.execute(f"""
+            WITH act AS ({_USER_ACTIVITY})
+            SELECT
+                (SELECT COUNT(*) FROM users),
+                (SELECT COUNT(*) FROM act WHERE first_seen >= datetime('now', '-1 day')),
+                (SELECT COUNT(*) FROM act WHERE first_seen >= datetime('now', '-7 days')),
+                (SELECT COUNT(*) FROM act WHERE first_seen >= datetime('now', '-30 days')),
+                (SELECT COUNT(*) FROM act WHERE last_seen >= datetime('now', '-1 day')),
+                (SELECT COUNT(*) FROM act WHERE last_seen >= datetime('now', '-7 days')),
+                (SELECT COUNT(*) FROM act WHERE last_seen >= datetime('now', '-30 days')),
+                (SELECT COUNT(DISTINCT user_id) FROM trucks),
+                (SELECT COUNT(DISTINCT user_id) FROM trips),
+                (SELECT COUNT(*) FROM trucks),
+                (SELECT COUNT(*) FROM trips),
+                (SELECT COUNT(*) FROM trips WHERE status = 'active'),
+                (SELECT COUNT(*) FROM trips WHERE created_at >= datetime('now', '-7 days')),
+                (SELECT COUNT(*) FROM truck_watchers WHERE status = 'approved'),
+                (SELECT COUNT(*) FROM load_alerts WHERE active = 1)
+        """)
+        keys = ["users", "new_1d", "new_7d", "new_30d", "active_1d", "active_7d", "active_30d",
+                "users_with_trucks", "users_with_trips", "trucks", "trips", "active_trips",
+                "trips_7d", "watchers", "load_alerts"]
+        return dict(zip(keys, await cur.fetchone()))
+
+
+async def admin_users():
+    """Har bir foydalanuvchi: oxirgi faolligi bo'yicha, eng yangisi birinchi."""
+    async with aiosqlite.connect(DB_PATH) as conn:
+        cur = await conn.execute(f"""
+            WITH act AS ({_USER_ACTIVITY})
+            SELECT u.id, u.telegram_id, u.full_name, u.username, act.first_seen,
+                   NULLIF(act.last_seen, ''),
+                   (SELECT COUNT(*) FROM trucks WHERE user_id = u.id),
+                   (SELECT COUNT(*) FROM trips WHERE user_id = u.id),
+                   (SELECT COUNT(*) FROM trips WHERE user_id = u.id AND status = 'active'),
+                   COALESCE((SELECT SUM(l.price) FROM trip_legs l JOIN trips tr ON tr.id = l.trip_id
+                             WHERE tr.user_id = u.id), 0),
+                   COALESCE((SELECT SUM(e.amount) FROM trip_expenses e JOIN trips tr ON tr.id = e.trip_id
+                             WHERE tr.user_id = u.id), 0),
+                   COALESCE((SELECT SUM(e.amount) FROM truck_expenses e JOIN trucks t ON t.id = e.truck_id
+                             WHERE t.user_id = u.id), 0)
+            FROM users u JOIN act ON act.user_id = u.id
+            ORDER BY act.last_seen DESC, u.id DESC
+        """)
+        return await cur.fetchall()
+
+
+async def admin_trucks():
+    async with aiosqlite.connect(DB_PATH) as conn:
+        cur = await conn.execute("""
+            SELECT t.id, u.full_name, u.username, t.plate, t.brand, t.volume, t.created_at,
+                   (SELECT COUNT(*) FROM trips WHERE truck_id = t.id),
+                   COALESCE((SELECT SUM(amount) FROM truck_expenses WHERE truck_id = t.id), 0),
+                   (SELECT COUNT(*) FROM truck_watchers WHERE truck_id = t.id AND status = 'approved')
+            FROM trucks t JOIN users u ON u.id = t.user_id
+            ORDER BY t.id DESC
+        """)
+        return await cur.fetchall()
+
+
+async def admin_trips():
+    async with aiosqlite.connect(DB_PATH) as conn:
+        cur = await conn.execute("""
+            SELECT tr.id, u.full_name, u.username, COALESCE(t.plate, t.name), tr.status,
+                   tr.created_at, tr.finished_at,
+                   (SELECT GROUP_CONCAT(from_point || ' → ' || to_point, '; ')
+                    FROM (SELECT from_point, to_point FROM trip_legs WHERE trip_id = tr.id ORDER BY id)),
+                   COALESCE((SELECT SUM(price) FROM trip_legs WHERE trip_id = tr.id), 0),
+                   COALESCE((SELECT SUM(amount) FROM trip_expenses WHERE trip_id = tr.id), 0)
+            FROM trips tr JOIN users u ON u.id = tr.user_id JOIN trucks t ON t.id = tr.truck_id
+            ORDER BY tr.id DESC
+        """)
+        return await cur.fetchall()
